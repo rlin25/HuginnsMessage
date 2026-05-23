@@ -1,0 +1,30 @@
+ARCTURUS CAPITAL MANAGEMENT
+Standard Operating Procedure — Settlement Quantity Mismatch
+Document ID: SOP-SM-002
+Sub-type: quantity_mismatch
+
+OVERVIEW
+A quantity mismatch exception arises when the number of securities units recorded in Arcturus's settlement instructions differs from the quantity confirmed by the counterparty or custodian. Quantity mismatches affect the securities leg of the transaction and can result in partial settlement or complete settlement failure if unresolved.
+
+IDENTIFICATION
+Quantity mismatch exceptions are flagged when the settlement instruction quantity from either party does not match, regardless of the magnitude of the discrepancy. Even a single unit difference prevents matched settlement.
+
+RESOLUTION PROCEDURE
+Step 1 — Pull both parties' settlement instructions from the SWIFT MT54x message history. Compare the securities quantity field in each instruction.
+Step 2 — Cross-reference against the original trade confirmation (MT515 or equivalent). The agreed quantity should be recorded there unambiguously.
+Step 3 — Identify the source of discrepancy. Common causes include: partial fill execution that was not properly consolidated, stock split or corporate action applied inconsistently, lot allocation errors in multi-portfolio trades, and clerical data entry errors.
+Step 4 — If a corporate action (stock split, rights issue) affected the position between trade date and settlement date, verify that both parties applied the adjustment with the same ex-date and ratio.
+Step 5 — Contact the counterparty operations desk to confirm their source quantity and request their trade confirmation documentation.
+Step 6 — If the Arcturus quantity is incorrect: amend the settlement instruction and resubmit. Obtain supervisor approval if the amendment exceeds 10% of original quantity.
+Step 7 — If the counterparty quantity is incorrect: provide documentary evidence and request their amendment.
+Step 8 — If a partial settlement is acceptable to both parties, document the partial agreement and create a new exception record for the remaining quantity.
+Step 9 — If not resolved within 3 hours of exception flag: escalate to Senior Settlement Manager.
+
+ESCALATION TRIGGERS
+- Neither party can produce original trade confirmation with agreed quantity
+- Discrepancy exceeds 5% of total trade quantity
+- Corporate action dispute that cannot be resolved with the registrar
+- Counterparty is subject to regulatory hold
+
+AUTO-RESOLUTION CRITERIA
+Auto-resolution is appropriate when: the source of the discrepancy is a documented calculation error or data entry error on one side, both parties agree on the corrected quantity, and the amended settlement instruction is matched and confirmed.

@@ -1,0 +1,29 @@
+ARCTURUS CAPITAL MANAGEMENT
+Standard Operating Procedure — Wrong Settlement Date
+Document ID: SOP-SM-003
+Sub-type: wrong_settlement_date
+
+OVERVIEW
+A wrong settlement date exception arises when the settlement date recorded in Arcturus's system or submitted to the clearinghouse differs from the date expected by the counterparty. Settlement date mismatches can cause failed settlements, penalty charges under CSDR (Central Securities Depositories Regulation), and overnight financing costs.
+
+IDENTIFICATION
+Wrong settlement date exceptions are flagged when Arcturus's settlement instruction specifies a value date that does not match the counterparty's instruction. The standard settlement cycle for US equities is T+1 (one business day after trade date). Fixed income and other instruments may have different standard cycles.
+
+RESOLUTION PROCEDURE
+Step 1 — Confirm the trade date and the applicable settlement convention for the instrument type. US equities: T+1. US Treasuries: T+1. Corporate bonds: T+2 in some markets. FX spot: T+2. Reference the instrument's settlement convention in the system.
+Step 2 — Check whether either the trade date or settlement date contains a holiday or non-business day adjustment error. Use the exchange or market calendar to confirm the correct settlement date calculation.
+Step 3 — Retrieve both parties' SWIFT MT54x settlement instructions and compare the value date field directly.
+Step 4 — Identify the source of discrepancy. Common causes include: holiday calendar not updated for the relevant market, system applying wrong settlement convention for the instrument type, manual date entry error, and time-zone boundary issues for trades executed near end-of-day.
+Step 5 — If Arcturus's date is incorrect: cancel and resubmit the settlement instruction with the correct value date immediately. Settlement date amendments are time-sensitive — delays can cause the trade to fall outside the clearinghouse's amendment window.
+Step 6 — If the counterparty's date is incorrect: contact their operations desk immediately and request amendment. Provide documentary evidence of the correct settlement convention.
+Step 7 — If the settlement date has already passed (failed settlement): calculate penalty charges per the applicable CSDR/internal penalty schedule and report to the Senior Settlement Manager.
+Step 8 — If not resolved within 1 hour of exception flag: escalate to Senior Settlement Manager. Wrong settlement date exceptions are the most time-critical settlement mismatch type.
+
+ESCALATION TRIGGERS
+- Settlement date has already passed (failed settlement)
+- Amendment window at clearinghouse is at risk of closing
+- Dispute involves cross-border settlement with conflicting holiday calendars
+- Counterparty refuses to amend without management approval
+
+AUTO-RESOLUTION CRITERIA
+Auto-resolution is appropriate when: the correct settlement date is unambiguously determinable from the instrument's settlement convention, the amendment window is still open, and the amended instruction is submitted and matched before the clearinghouse cutoff.

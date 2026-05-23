@@ -1,0 +1,28 @@
+ARCTURUS CAPITAL MANAGEMENT
+Standard Operating Procedure — Settlement Price Mismatch
+Document ID: SOP-SM-001
+Sub-type: price_mismatch
+
+OVERVIEW
+A price mismatch exception arises when the settlement price recorded in Arcturus's internal systems differs from the price confirmed by the counterparty or custodian at settlement. Price discrepancies must be resolved before settlement can proceed, as they directly affect the cash leg of the transaction.
+
+IDENTIFICATION
+Price mismatch exceptions are flagged when the absolute difference between Arcturus's recorded settlement price and the counterparty's confirmed price exceeds 0.01 per unit, or when a percentage variance of more than 0.05% is observed on fixed-income instruments.
+
+RESOLUTION PROCEDURE
+Step 1 — Verify both parties' trade confirmations against the original execution report. Retrieve the original term sheet or execution message from the order management system.
+Step 2 — Identify the source of discrepancy. Common causes include: accrued interest calculation differences (particularly for bonds settling between coupon dates), incorrect clean vs. dirty price treatment, currency conversion rounding, and data entry errors on either side.
+Step 3 — Contact the counterparty operations desk directly via SWIFT MT535/MT536 message or phone to confirm their recorded price and request their original execution confirmation.
+Step 4 — If the Arcturus price is incorrect: amend the trade record in the order management system and obtain supervisor sign-off before resubmitting to the clearinghouse.
+Step 5 — If the counterparty price is incorrect: provide the counterparty with documentary evidence (original execution report, exchange confirmation) and request they submit an amendment.
+Step 6 — If the source cannot be resolved within 2 hours of exception flag: escalate to the Senior Settlement Manager and place the trade in the pending queue.
+Step 7 — Document all communications and the final resolution in the exception log with timestamps.
+
+ESCALATION TRIGGERS
+- Either party cannot provide documentary evidence of agreed price
+- Discrepancy exceeds 0.5% of trade value
+- Trade is on the sanctions watchlist (escalate immediately to Compliance)
+- Trade involves AML-flagged counterparty (escalate immediately to Compliance)
+
+AUTO-RESOLUTION CRITERIA
+Auto-resolution is appropriate when: the discrepancy source is identified and attributable to a known calculation difference (e.g. accrued interest), both parties agree on the corrected price, and the amendment is processed and confirmed by both sides within the resolution window.
