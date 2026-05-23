@@ -1,0 +1,9 @@
+venv/
+.env
+__pycache__/
+*.db
+.chroma/
+logs/
+*.jsonl
+knowledge_base/processed/
+*:Zone.Identifier
