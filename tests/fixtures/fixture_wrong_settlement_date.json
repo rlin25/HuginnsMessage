@@ -1,0 +1,9 @@
+{
+  "exception_id": "c3d4e5f6-a7b8-9012-cdef-123456789012",
+  "trade_id": "TRD-003",
+  "type": "settlement_mismatch",
+  "sub_type": "wrong_settlement_date",
+  "description": "Settlement date recorded as 2026-05-16 in our system but counterparty expects settlement on 2026-05-17.",
+  "timestamp": "2026-05-15T11:00:00Z",
+  "severity": "low"
+}

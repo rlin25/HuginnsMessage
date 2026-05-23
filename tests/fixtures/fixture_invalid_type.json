@@ -1,0 +1,9 @@
+{
+  "exception_id": "e5f6a7b8-c9d0-1234-efab-345678901234",
+  "trade_id": "TRD-005",
+  "type": "corporate_action_failure",
+  "sub_type": "price_mismatch",
+  "description": "This exception type is not valid in v1.",
+  "timestamp": "2026-05-15T12:00:00Z",
+  "severity": "low"
+}

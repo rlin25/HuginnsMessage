@@ -1,0 +1,9 @@
+{
+  "exception_id": "d4e5f6a7-b8c9-0123-defa-234567890123",
+  "trade_id": "TRD-004",
+  "type": "settlement_mismatch",
+  "sub_type": "price_mismatch",
+  "description": "Price discrepancy flagged. Counterparty account subject to sanctions review. Settlement suspended pending compliance clearance.",
+  "timestamp": "2026-05-15T11:30:00Z",
+  "severity": "high"
+}

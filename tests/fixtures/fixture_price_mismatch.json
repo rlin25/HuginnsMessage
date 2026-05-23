@@ -1,0 +1,9 @@
+{
+  "exception_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "trade_id": "TRD-001",
+  "type": "settlement_mismatch",
+  "sub_type": "price_mismatch",
+  "description": "Counterparty confirms settlement at 102.50 but our records show 101.75 for bond CUSIP 123456789.",
+  "timestamp": "2026-05-15T09:30:00Z",
+  "severity": "high"
+}
