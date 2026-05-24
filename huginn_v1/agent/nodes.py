@@ -143,7 +143,13 @@ Evaluate this exception against the SOP excerpts and respond with the JSON struc
         )
 
         raw_response = message.content[0].text
-        parsed = json.loads(raw_response)
+        cleaned = raw_response.strip()
+        if cleaned.startswith("```"):
+            cleaned = cleaned.split("```", 2)[1]
+            if cleaned.startswith("json"):
+                cleaned = cleaned[4:]
+            cleaned = cleaned.rsplit("```", 1)[0]
+        parsed = json.loads(cleaned.strip())
 
         confidence_score = float(parsed["confidence_score"])
         confidence_score = max(0.0, min(1.0, confidence_score))
