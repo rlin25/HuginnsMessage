@@ -1,0 +1,57 @@
+============================= test session starts ==============================
+platform linux -- Python 3.10.12, pytest-9.0.3, pluggy-1.6.0 -- /venv/bin/python3
+cachedir: .pytest_cache
+rootdir: /root/Huginn/huginn_v1
+plugins: anyio-4.13.0, langsmith-0.8.5
+collecting ... collected 40 items
+
+tests/test_mimir.py::TestMimirRetrieve::test_price_mismatch_returns_correct_document PASSED [  2%]
+tests/test_mimir.py::TestMimirRetrieve::test_quantity_mismatch_returns_correct_document PASSED [  5%]
+tests/test_mimir.py::TestMimirRetrieve::test_wrong_settlement_date_returns_correct_document PASSED [  7%]
+tests/test_mimir.py::TestMimirRetrieve::test_each_chunk_has_required_fields PASSED [ 10%]
+tests/test_mimir.py::TestMimirRetrieve::test_returns_empty_list_not_exception_on_unusual_query PASSED [ 12%]
+tests/test_mimir.py::TestMimirRetrieve::test_top_k_parameter_respected PASSED [ 15%]
+tests/test_agent.py::TestClassifyNode::test_classify_price_mismatch_no_keyword PASSED [ 17%]
+tests/test_agent.py::TestClassifyNode::test_classify_quantity_mismatch_no_keyword PASSED [ 20%]
+tests/test_agent.py::TestClassifyNode::test_classify_detects_sanctions_keyword PASSED [ 22%]
+tests/test_agent.py::TestClassifyNode::test_classify_detects_AML_keyword PASSED [ 25%]
+tests/test_agent.py::TestClassifyNode::test_classify_detects_regulatory_hold_keyword PASSED [ 27%]
+tests/test_agent.py::TestClassifyNode::test_classify_keyword_detection_is_case_insensitive PASSED [ 30%]
+tests/test_agent.py::TestDecideNode::test_decide_auto_resolve_at_threshold PASSED [ 32%]
+tests/test_agent.py::TestDecideNode::test_decide_auto_resolve_above_threshold PASSED [ 35%]
+tests/test_agent.py::TestDecideNode::test_decide_escalate_below_threshold PASSED [ 37%]
+tests/test_agent.py::TestDecideNode::test_decide_escalate_on_none_confidence PASSED [ 40%]
+tests/test_agent.py::TestDecideNode::test_decide_escalate_at_zero PASSED [ 42%]
+tests/test_agent.py::TestEscalateFastExitNode::test_fast_exit_sets_correct_outcome PASSED [ 45%]
+tests/test_agent.py::TestEscalateFastExitNode::test_fast_exit_nulls_llm_fields PASSED [ 47%]
+tests/test_agent.py::TestAgentGraph::test_fast_exit_path_sanctions PASSED [ 50%]
+tests/test_agent.py::TestAgentGraph::test_standard_path_produces_valid_outcome PASSED [ 52%]
+tests/test_agent.py::TestAgentGraph::test_standard_path_quantity_mismatch PASSED [ 55%]
+tests/test_agent.py::TestAgentGraph::test_audit_log_written_for_all_paths PASSED [ 57%]
+tests/test_agent.py::TestAgentGraph::test_escalation_queue_only_contains_escalated PASSED [ 60%]
+tests/test_api.py::TestAPIEndpoints::test_post_exception_valid_returns_200 PASSED [ 62%]
+tests/test_api.py::TestAPIEndpoints::test_post_exception_response_schema PASSED [ 65%]
+tests/test_api.py::TestAPIEndpoints::test_post_exception_invalid_type_returns_422 PASSED [ 67%]
+tests/test_api.py::TestAPIEndpoints::test_post_exception_missing_field_returns_422 PASSED [ 70%]
+tests/test_api.py::TestAPIEndpoints::test_get_exception_result_returns_200 PASSED [ 72%]
+tests/test_api.py::TestAPIEndpoints::test_get_exception_result_schema PASSED [ 75%]
+tests/test_api.py::TestAPIEndpoints::test_get_exception_unknown_job_id_returns_404 PASSED [ 77%]
+tests/test_api.py::TestAPIEndpoints::test_standard_path_price_mismatch_has_retrieved_document PASSED [ 80%]
+tests/test_api.py::TestAPIEndpoints::test_fast_exit_path_sanctions_keyword PASSED [ 82%]
+tests/test_api.py::TestAPIEndpoints::test_get_escalations_returns_200 PASSED [ 85%]
+tests/test_api.py::TestAPIEndpoints::test_get_escalations_empty_when_no_escalations PASSED [ 87%]
+tests/test_api.py::TestAPIEndpoints::test_get_escalations_contains_escalated_exception PASSED [ 90%]
+tests/test_api.py::TestAPIEndpoints::test_get_escalations_does_not_contain_auto_resolved PASSED [ 92%]
+tests/test_api.py::TestAPIEndpoints::test_audit_jsonl_written_after_submission PASSED [ 95%]
+tests/test_api.py::TestAPIEndpoints::test_sqlite_record_written_after_submission PASSED [ 97%]
+tests/test_api.py::TestAPIEndpoints::test_escalation_queue_written_for_fast_exit PASSED [100%]
+
+=============================== warnings summary ===============================
+tests/test_agent.py: 3 warnings
+tests/test_api.py: 8 warnings
+  /root/Huginn/huginn_v1/agent/nodes.py:138: DeprecationWarning: The model 'claude-sonnet-4-20250514' is deprecated and will reach end-of-life on June 15th, 2026.
+  Please migrate to a newer model. Visit https://docs.anthropic.com/en/docs/resources/model-deprecations for more information.
+    message = client.messages.create(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+================== 40 passed, 11 warnings in 95.73s (0:01:35) ==================

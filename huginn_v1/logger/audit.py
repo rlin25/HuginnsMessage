@@ -19,7 +19,7 @@ def _ensure_logs_dir():
 
 def _init_db():
     global _db_initialized
-    if _db_initialized:
+    if _db_initialized and AUDIT_DB.exists():
         return
     _ensure_logs_dir()
     conn = sqlite3.connect(AUDIT_DB)
