@@ -7,3 +7,5 @@ logs/
 *.jsonl
 knowledge_base/processed/
 *:Zone.Identifier
+.understand-anything/intermediate/
+.understand-anything/diff-overlay.json
