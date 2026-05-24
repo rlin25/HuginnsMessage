@@ -1,0 +1,13 @@
+Test 1: Standard path — price_mismatch
+  PASS: outcome = auto_resolve
+  confidence_score = 0.82
+  retrieved_document_id = SOP-SM-001
+
+Test 2: Mandatory escalation fast-exit — sanctions keyword
+  PASS: outcome=escalate, escalation_reason='mandatory escalation keyword detected: sanctions', retrieved_document_id=None, confidence_score=None
+
+Verifying audit log...
+  PASS: audit.jsonl has 2 entries
+  PASS: escalation_queue.jsonl has 1 entries (should be ≥1)
+
+Agent smoke tests passed. Gate cleared for Subplan 5.

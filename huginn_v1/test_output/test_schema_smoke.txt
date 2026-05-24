@@ -1,0 +1,5 @@
+PASS: fixture_price_mismatch.json → settlement_mismatch / price_mismatch
+PASS: fixture_quantity_mismatch.json → settlement_mismatch / quantity_mismatch
+PASS: fixture_wrong_settlement_date.json → settlement_mismatch / wrong_settlement_date
+PASS: fixture_mandatory_escalation.json → settlement_mismatch / price_mismatch
+PASS: fixture_invalid_type.json correctly rejected → 1 error(s)

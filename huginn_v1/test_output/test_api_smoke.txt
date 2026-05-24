@@ -1,0 +1,65 @@
+=== Test 1: POST /exceptions (price_mismatch) ===
+HTTP 200
+{
+    "job_id": "43472689-78ea-4371-b1a1-a00a604e2a4b",
+    "status": "received",
+    "exception_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "timestamp": "2026-05-24T00:12:52.767052+00:00"
+}
+
+=== Test 2: GET /exceptions/{job_id} ===
+HTTP 200
+{
+    "job_id": "89b53f38-698e-4813-bfc1-cf32331cd2e7",
+    "exception_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567891",
+    "outcome": "auto_resolve",
+    "confidence_score": 0.82,
+    "reasoning_trace": "Step 1: Sub-type match analysis - The SOP directly addresses 'price_mismatch' exceptions, which exactly matches this exception's sub-type. Step 2: Description clarity assessment - The exception provides specific details: counterparty price (102.50), internal price (101.75), and asset identification (bond CUSIP 123456789). This is sufficient detail to act upon. Step 3: SOP completeness evaluation - The SOP provides a clear 7-step resolution procedure from verification through escalation. Steps 1-2 cover initial verification and discrepancy identification, Steps 5-6 cover resolution paths, and Step 7 covers documentation. Step 4: Coverage gaps assessment - The SOP mentions bond-specific causes like accrued interest calculations and clean vs. dirty price treatment, which is directly relevant to this bond price mismatch. Step 5: Final scoring - The SOP is highly relevant and applicable with clear resolution steps. Minor point deduction because the SOP doesn't specify exact procedures for bonds settling between coupon dates, but the general framework is comprehensive.",
+    "resolution_steps": "1. Retrieve original execution report and term sheet from order management system to verify both parties' trade confirmations. 2. Compare counterparty confirmation (102.50) against internal records (101.75) and identify source of 0.75 point discrepancy. 3. Check for common bond pricing issues: accrued interest calculation differences, clean vs dirty price treatment, and currency conversion rounding errors. 4. If internal price is incorrect, update systems and proceed with settlement at 102.50. 5. If counterparty price is incorrect, provide documentary evidence (execution report, exchange confirmation) and request amendment. 6. If discrepancy cannot be resolved within 2 hours, escalate to Senior Settlement Manager and place trade in pending queue. 7. Document all communications and final resolution in exception log with timestamps.",
+    "retrieved_document_id": "SOP-SM-001",
+    "escalation_reason": null,
+    "timestamp": "2026-05-24T00:13:29.991300+00:00"
+}
+
+=== Test 3: POST /exceptions (sanctions fast-exit) ===
+HTTP 200
+{
+    "job_id": "bf4cca1f-6f1c-4e1c-9a73-740477a08370",
+    "status": "received",
+    "exception_id": "d4e5f6a7-b8c9-0123-defa-234567890123",
+    "timestamp": "2026-05-24T00:14:00.207263+00:00"
+}
+
+GET /exceptions/{job_id} (sanctions result):
+HTTP 200
+{
+    "job_id": "bf4cca1f-6f1c-4e1c-9a73-740477a08370",
+    "exception_id": "d4e5f6a7-b8c9-0123-defa-234567890123",
+    "outcome": "escalate",
+    "confidence_score": null,
+    "reasoning_trace": null,
+    "resolution_steps": null,
+    "retrieved_document_id": null,
+    "escalation_reason": "mandatory escalation keyword detected: sanctions",
+    "timestamp": "2026-05-24T00:14:00.207263+00:00"
+}
+
+=== Test 4: POST /exceptions (invalid type → 422) ===
+HTTP 422
+{
+    "detail": [
+        {
+            "type": "enum",
+            "loc": ["body", "type"],
+            "msg": "Input should be 'settlement_mismatch'",
+            "input": "corporate_action_failure",
+            "ctx": {"expected": "'settlement_mismatch'"}
+        }
+    ]
+}
+
+=== Test 5: GET /escalations ===
+HTTP 200
+escalations count: 2
+  job_id=smoke-test-002, outcome=escalate, escalation_reason=mandatory escalation keyword detected: sanctions
+  job_id=bf4cca1f-6f1c-4e1c-9a73-740477a08370, outcome=escalate, escalation_reason=mandatory escalation keyword detected: sanctions

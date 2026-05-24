@@ -1,0 +1,8 @@
+PASS: audit.jsonl contains 2 entries
+PASS: escalation_queue.jsonl contains 1 entry with correct job_id
+PASS: SQLite contains 2 rows
+  test-job-001 → auto_resolve
+  test-job-002 → escalate
+PASS: auto_resolve event correctly absent from escalation_queue.jsonl
+
+All logger smoke tests passed. Gate cleared for Subplan 4.

@@ -1,0 +1,5 @@
+PASS: price_mismatch query → SOP-SM-001 (score: 0.7809)
+PASS: quantity_mismatch query → SOP-SM-002 (score: 0.7484)
+PASS: wrong_settlement_date query → SOP-SM-003 (score: 0.6579)
+
+All Mimir smoke tests passed. Gate cleared for Subplan 3.
