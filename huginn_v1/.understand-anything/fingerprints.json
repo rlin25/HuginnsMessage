@@ -1,0 +1,1497 @@
+{
+  "version": "1.0.0",
+  "gitCommitHash": "f6d9bcbc44058260aa77d36eab4c26012c006501",
+  "generatedAt": "2026-05-24T17:15:42.807Z",
+  "files": {
+    "agent/__init__.py": {
+      "filePath": "agent/__init__.py",
+      "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 1,
+      "hasStructuralAnalysis": true
+    },
+    "agent/graph.py": {
+      "filePath": "agent/graph.py",
+      "contentHash": "c49c10c24e78c854ca2dadbb71c7efbffadcbd3e12fa7f95e457f16258918b0f",
+      "functions": [
+        {
+          "name": "should_fast_exit",
+          "params": [
+            "state"
+          ],
+          "returnType": "str",
+          "exported": true,
+          "lineCount": 5
+        },
+        {
+          "name": "should_escalate",
+          "params": [
+            "state"
+          ],
+          "returnType": "str",
+          "exported": true,
+          "lineCount": 5
+        },
+        {
+          "name": "build_graph",
+          "params": [],
+          "returnType": "StateGraph",
+          "exported": true,
+          "lineCount": 45
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "langgraph.graph",
+          "specifiers": [
+            "StateGraph",
+            "END"
+          ]
+        },
+        {
+          "source": "agent.state",
+          "specifiers": [
+            "AgentState"
+          ]
+        },
+        {
+          "source": "agent.nodes",
+          "specifiers": [
+            "classify",
+            "retrieve_node",
+            "reason",
+            "decide",
+            "escalate_fast_exit",
+            "log_result"
+          ]
+        }
+      ],
+      "exports": [
+        "should_fast_exit",
+        "should_escalate",
+        "build_graph"
+      ],
+      "totalLines": 78,
+      "hasStructuralAnalysis": true
+    },
+    "agent/nodes.py": {
+      "filePath": "agent/nodes.py",
+      "contentHash": "9d2e309c68f9a0e394e42d62be58d1dbd0998809de92cbaf030012023697bd37",
+      "functions": [
+        {
+          "name": "classify",
+          "params": [
+            "state"
+          ],
+          "returnType": "dict",
+          "exported": true,
+          "lineCount": 20
+        },
+        {
+          "name": "retrieve_node",
+          "params": [
+            "state"
+          ],
+          "returnType": "dict",
+          "exported": true,
+          "lineCount": 18
+        },
+        {
+          "name": "reason",
+          "params": [
+            "state"
+          ],
+          "returnType": "dict",
+          "exported": true,
+          "lineCount": 72
+        },
+        {
+          "name": "decide",
+          "params": [
+            "state"
+          ],
+          "returnType": "dict",
+          "exported": true,
+          "lineCount": 27
+        },
+        {
+          "name": "escalate_fast_exit",
+          "params": [
+            "state"
+          ],
+          "returnType": "dict",
+          "exported": true,
+          "lineCount": 17
+        },
+        {
+          "name": "log_result",
+          "params": [
+            "state"
+          ],
+          "returnType": "dict",
+          "exported": true,
+          "lineCount": 31
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "json",
+          "specifiers": [
+            "json"
+          ]
+        },
+        {
+          "source": "os",
+          "specifiers": [
+            "os"
+          ]
+        },
+        {
+          "source": "datetime",
+          "specifiers": [
+            "datetime",
+            "timezone"
+          ]
+        },
+        {
+          "source": "anthropic",
+          "specifiers": [
+            "anthropic"
+          ]
+        },
+        {
+          "source": "dotenv",
+          "specifiers": [
+            "load_dotenv"
+          ]
+        },
+        {
+          "source": "mimir.retriever",
+          "specifiers": [
+            "retrieve"
+          ]
+        },
+        {
+          "source": "logger.audit",
+          "specifiers": [
+            "log"
+          ]
+        }
+      ],
+      "exports": [
+        "classify",
+        "retrieve_node",
+        "reason",
+        "decide",
+        "escalate_fast_exit",
+        "log_result"
+      ],
+      "totalLines": 268,
+      "hasStructuralAnalysis": true
+    },
+    "agent/state.py": {
+      "filePath": "agent/state.py",
+      "contentHash": "6e36deb8212f5ba385442ff480d1f50c314c1c7a1e4477726ac4dd4684fc6582",
+      "functions": [],
+      "classes": [
+        {
+          "name": "AgentState",
+          "methods": [],
+          "properties": [
+            "exception",
+            "job_id",
+            "exception_type",
+            "exception_sub_type",
+            "triggered_keyword",
+            "retrieved_chunks",
+            "retrieved_document_id",
+            "confidence_score",
+            "reasoning_trace",
+            "resolution_steps",
+            "llm_raw_response",
+            "outcome",
+            "escalation_reason",
+            "current_node"
+          ],
+          "exported": true,
+          "lineCount": 26
+        }
+      ],
+      "imports": [
+        {
+          "source": "typing",
+          "specifiers": [
+            "TypedDict"
+          ]
+        }
+      ],
+      "exports": [
+        "AgentState"
+      ],
+      "totalLines": 32,
+      "hasStructuralAnalysis": true
+    },
+    "api/__init__.py": {
+      "filePath": "api/__init__.py",
+      "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 1,
+      "hasStructuralAnalysis": true
+    },
+    "api/main.py": {
+      "filePath": "api/main.py",
+      "contentHash": "11e2fab7288ada28ef3a54575dd8a1e167e843e00a5078975694e28eb3d24e8b",
+      "functions": [
+        {
+          "name": "submit_exception",
+          "params": [
+            "exception"
+          ],
+          "exported": true,
+          "lineCount": 54
+        },
+        {
+          "name": "get_exception_result",
+          "params": [
+            "job_id"
+          ],
+          "exported": true,
+          "lineCount": 8
+        },
+        {
+          "name": "get_escalations",
+          "params": [],
+          "exported": true,
+          "lineCount": 32
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "json",
+          "specifiers": [
+            "json"
+          ]
+        },
+        {
+          "source": "uuid",
+          "specifiers": [
+            "uuid"
+          ]
+        },
+        {
+          "source": "datetime",
+          "specifiers": [
+            "datetime",
+            "timezone"
+          ]
+        },
+        {
+          "source": "pathlib",
+          "specifiers": [
+            "Path"
+          ]
+        },
+        {
+          "source": "fastapi",
+          "specifiers": [
+            "FastAPI",
+            "HTTPException"
+          ]
+        },
+        {
+          "source": "dotenv",
+          "specifiers": [
+            "load_dotenv"
+          ]
+        },
+        {
+          "source": "models.exception",
+          "specifiers": [
+            "TradeException"
+          ]
+        },
+        {
+          "source": "agent.graph",
+          "specifiers": [
+            "huginn_graph"
+          ]
+        }
+      ],
+      "exports": [
+        "submit_exception",
+        "get_exception_result",
+        "get_escalations"
+      ],
+      "totalLines": 141,
+      "hasStructuralAnalysis": true
+    },
+    "conftest.py": {
+      "filePath": "conftest.py",
+      "contentHash": "96de68ad72e4c3a60df4c0b43773597ca00b19a50ff416ad0bee68e7a32016b3",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "sys",
+          "specifiers": [
+            "sys"
+          ]
+        },
+        {
+          "source": "pathlib",
+          "specifiers": [
+            "Path"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 6,
+      "hasStructuralAnalysis": true
+    },
+    "DESIGN_DECISIONS.md": {
+      "filePath": "DESIGN_DECISIONS.md",
+      "contentHash": "1ad3e5c5d9ac513f69565799e413553ffeb53ee685cb686f666b31fcd0e345de",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 410,
+      "hasStructuralAnalysis": true
+    },
+    "DESIGN.md": {
+      "filePath": "DESIGN.md",
+      "contentHash": "67a7213ca8dcf6c9c4a2f2dee94d782907014a7fde4aecc9b6795890f39e9754",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 210,
+      "hasStructuralAnalysis": true
+    },
+    "docs/architecture.md": {
+      "filePath": "docs/architecture.md",
+      "contentHash": "32f16db66871bd57fba937efecdcb6d98de969046cbafe9d8f7bd9337e9fc92a",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 221,
+      "hasStructuralAnalysis": true
+    },
+    "docs/design_decisions.md": {
+      "filePath": "docs/design_decisions.md",
+      "contentHash": "84b174da07088768d4b6e8c7af842560090fbb19e8b5a9e23afe833d75efe3f3",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 414,
+      "hasStructuralAnalysis": true
+    },
+    "docs/glossary.md": {
+      "filePath": "docs/glossary.md",
+      "contentHash": "1148f887e0e30da634f9c16a850bd075821b46925da7c4ef2ac0c663a73712e4",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 267,
+      "hasStructuralAnalysis": true
+    },
+    "docs/interface_contract.md": {
+      "filePath": "docs/interface_contract.md",
+      "contentHash": "0c9a4b8d48a444b9deaec46483a38a84e8f689102b1fb2f075c5fee96769b693",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 472,
+      "hasStructuralAnalysis": true
+    },
+    "docs/setup_notes.md": {
+      "filePath": "docs/setup_notes.md",
+      "contentHash": "c94ccf7b912200deed3bcd35aa251d5d7a0a285da831a485a4035dcce39ae452",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 239,
+      "hasStructuralAnalysis": true
+    },
+    "INTERFACE_CONTRACT.md": {
+      "filePath": "INTERFACE_CONTRACT.md",
+      "contentHash": "f7650d0f8fa023fa9f04de91ab96d96ed53d0d5652825cbfeee22a4f48c729e7",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 477,
+      "hasStructuralAnalysis": true
+    },
+    "knowledge_base/raw/sop_price_mismatch.txt": {
+      "filePath": "knowledge_base/raw/sop_price_mismatch.txt",
+      "contentHash": "f7e79a4df2f9b758384205f34cdf07566a71a6c881f9095928066ebaac7d1edf",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 29,
+      "hasStructuralAnalysis": false
+    },
+    "knowledge_base/raw/sop_quantity_mismatch.txt": {
+      "filePath": "knowledge_base/raw/sop_quantity_mismatch.txt",
+      "contentHash": "64b75f1641e985973fba8633972ed50d604dc0aa3596cdb4a63ff00b8c4fc327",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 31,
+      "hasStructuralAnalysis": false
+    },
+    "knowledge_base/raw/sop_wrong_settlement_date.txt": {
+      "filePath": "knowledge_base/raw/sop_wrong_settlement_date.txt",
+      "contentHash": "54b14b65a207de4f78053a83caae3ad088c75cd9175cf7ec101da7794dfdf861",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 30,
+      "hasStructuralAnalysis": false
+    },
+    "logger/__init__.py": {
+      "filePath": "logger/__init__.py",
+      "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 1,
+      "hasStructuralAnalysis": true
+    },
+    "logger/audit.py": {
+      "filePath": "logger/audit.py",
+      "contentHash": "e0b9206b591bda435c84bca16cc1c50183411ef2ebb0c8567b3544da6e68a1b6",
+      "functions": [
+        {
+          "name": "_ensure_logs_dir",
+          "params": [],
+          "exported": true,
+          "lineCount": 2
+        },
+        {
+          "name": "_init_db",
+          "params": [],
+          "exported": true,
+          "lineCount": 27
+        },
+        {
+          "name": "_write_jsonl",
+          "params": [
+            "path",
+            "event"
+          ],
+          "exported": true,
+          "lineCount": 4
+        },
+        {
+          "name": "_write_sqlite",
+          "params": [
+            "event"
+          ],
+          "exported": true,
+          "lineCount": 32
+        },
+        {
+          "name": "log",
+          "params": [
+            "event"
+          ],
+          "returnType": "None",
+          "exported": true,
+          "lineCount": 17
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "json",
+          "specifiers": [
+            "json"
+          ]
+        },
+        {
+          "source": "sqlite3",
+          "specifiers": [
+            "sqlite3"
+          ]
+        },
+        {
+          "source": "datetime",
+          "specifiers": [
+            "datetime",
+            "timezone"
+          ]
+        },
+        {
+          "source": "pathlib",
+          "specifiers": [
+            "Path"
+          ]
+        }
+      ],
+      "exports": [
+        "_ensure_logs_dir",
+        "_init_db",
+        "_write_jsonl",
+        "_write_sqlite",
+        "log"
+      ],
+      "totalLines": 106,
+      "hasStructuralAnalysis": true
+    },
+    "mimir/__init__.py": {
+      "filePath": "mimir/__init__.py",
+      "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 1,
+      "hasStructuralAnalysis": true
+    },
+    "mimir/index.py": {
+      "filePath": "mimir/index.py",
+      "contentHash": "256efae0495db8be4002749b778c31eed5507505308f427cbc06a8558661fbc7",
+      "functions": [
+        {
+          "name": "get_vectorstore",
+          "params": [],
+          "returnType": "Chroma",
+          "exported": true,
+          "lineCount": 13
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "langchain_huggingface",
+          "specifiers": [
+            "HuggingFaceEmbeddings"
+          ]
+        },
+        {
+          "source": "langchain_chroma",
+          "specifiers": [
+            "Chroma"
+          ]
+        }
+      ],
+      "exports": [
+        "get_vectorstore"
+      ],
+      "totalLines": 25,
+      "hasStructuralAnalysis": true
+    },
+    "mimir/retriever.py": {
+      "filePath": "mimir/retriever.py",
+      "contentHash": "440ed94a60f67bfeff50d8991689fc89e0955224712143893cbb500bee3596a3",
+      "functions": [
+        {
+          "name": "retrieve",
+          "params": [
+            "query",
+            "top_k"
+          ],
+          "returnType": "list[dict]",
+          "exported": true,
+          "lineCount": 31
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "mimir.index",
+          "specifiers": [
+            "get_vectorstore"
+          ]
+        }
+      ],
+      "exports": [
+        "retrieve"
+      ],
+      "totalLines": 37,
+      "hasStructuralAnalysis": true
+    },
+    "models/__init__.py": {
+      "filePath": "models/__init__.py",
+      "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 1,
+      "hasStructuralAnalysis": true
+    },
+    "models/exception.py": {
+      "filePath": "models/exception.py",
+      "contentHash": "eba1e6e898b80490260f96f55a73f414a5c9df965c05e5d1cde65f94207bea16",
+      "functions": [],
+      "classes": [
+        {
+          "name": "ExceptionType",
+          "methods": [],
+          "properties": [],
+          "exported": true,
+          "lineCount": 2
+        },
+        {
+          "name": "SettlementMismatchSubType",
+          "methods": [],
+          "properties": [],
+          "exported": true,
+          "lineCount": 4
+        },
+        {
+          "name": "Severity",
+          "methods": [],
+          "properties": [],
+          "exported": true,
+          "lineCount": 4
+        },
+        {
+          "name": "TradeException",
+          "methods": [
+            "validate_sub_type_scope"
+          ],
+          "properties": [
+            "exception_id",
+            "trade_id",
+            "type",
+            "sub_type",
+            "description",
+            "timestamp",
+            "severity"
+          ],
+          "exported": true,
+          "lineCount": 15
+        }
+      ],
+      "imports": [
+        {
+          "source": "pydantic",
+          "specifiers": [
+            "BaseModel",
+            "model_validator"
+          ]
+        },
+        {
+          "source": "uuid",
+          "specifiers": [
+            "UUID"
+          ]
+        },
+        {
+          "source": "datetime",
+          "specifiers": [
+            "datetime"
+          ]
+        },
+        {
+          "source": "enum",
+          "specifiers": [
+            "Enum"
+          ]
+        }
+      ],
+      "exports": [
+        "ExceptionType",
+        "SettlementMismatchSubType",
+        "Severity",
+        "TradeException"
+      ],
+      "totalLines": 38,
+      "hasStructuralAnalysis": true
+    },
+    "prompts/01_design_methodology.md": {
+      "filePath": "prompts/01_design_methodology.md",
+      "contentHash": "add52cbd40587f98eb8fe45213f51a2278585ec323985c17f39b44c9d13f2716",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 219,
+      "hasStructuralAnalysis": true
+    },
+    "prompts/02_readme_generation.md": {
+      "filePath": "prompts/02_readme_generation.md",
+      "contentHash": "2678222ebf11bf680985ffffdc87a3bab824873cb10394ce59f6b42e683706b5",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 188,
+      "hasStructuralAnalysis": true
+    },
+    "prompts/03_generate_walkthrough.md": {
+      "filePath": "prompts/03_generate_walkthrough.md",
+      "contentHash": "ba5ec63f7e55dd45138571de04715bda667da9ed98434bfcca31d93c335ad25b",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 45,
+      "hasStructuralAnalysis": true
+    },
+    "prompts/04_rewrite_glossary.md": {
+      "filePath": "prompts/04_rewrite_glossary.md",
+      "contentHash": "8edf524b55ac96c9e81230971f655dc7c2374b60a9317b6bbac6636df7718b28",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 70,
+      "hasStructuralAnalysis": true
+    },
+    "prompts/README.md": {
+      "filePath": "prompts/README.md",
+      "contentHash": "180389ac54c39b9eea1e5fd3cf37584449760b0ebd5cf0f54441ece3888af1f1",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 37,
+      "hasStructuralAnalysis": true
+    },
+    "README.md": {
+      "filePath": "README.md",
+      "contentHash": "a9c2f9f4933157d0ac872c8bfd7ea4681690e78f89a5269e9a2ee44389f297cb",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 135,
+      "hasStructuralAnalysis": true
+    },
+    "scripts/__init__.py": {
+      "filePath": "scripts/__init__.py",
+      "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 1,
+      "hasStructuralAnalysis": true
+    },
+    "scripts/build_index.py": {
+      "filePath": "scripts/build_index.py",
+      "contentHash": "a24da2306ab3fd949b409d0f8afeeb75dc3da2f62201176aca7ca619c32ad4db",
+      "functions": [
+        {
+          "name": "build_index",
+          "params": [],
+          "exported": true,
+          "lineCount": 43
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "sys",
+          "specifiers": [
+            "sys"
+          ]
+        },
+        {
+          "source": "pathlib",
+          "specifiers": [
+            "Path"
+          ]
+        },
+        {
+          "source": "langchain_community.document_loaders",
+          "specifiers": [
+            "TextLoader"
+          ]
+        },
+        {
+          "source": "langchain_text_splitters",
+          "specifiers": [
+            "RecursiveCharacterTextSplitter"
+          ]
+        },
+        {
+          "source": "langchain_huggingface",
+          "specifiers": [
+            "HuggingFaceEmbeddings"
+          ]
+        },
+        {
+          "source": "langchain_chroma",
+          "specifiers": [
+            "Chroma"
+          ]
+        }
+      ],
+      "exports": [
+        "build_index"
+      ],
+      "totalLines": 82,
+      "hasStructuralAnalysis": true
+    },
+    "subplans/masterplan.md": {
+      "filePath": "subplans/masterplan.md",
+      "contentHash": "007610c67122c86a9a866c4eea935f44ed5a97c370c6f00bb60de673a7f13519",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 121,
+      "hasStructuralAnalysis": true
+    },
+    "subplans/subplan_1.md": {
+      "filePath": "subplans/subplan_1.md",
+      "contentHash": "384d002f19894fd143f2c50f17ec8dd8197feb844ab9c20604322af50ebb198f",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 201,
+      "hasStructuralAnalysis": true
+    },
+    "subplans/subplan_2.md": {
+      "filePath": "subplans/subplan_2.md",
+      "contentHash": "91a69cba5c7af8da7e463b1207e0c9fdbd2a64e516176ed78f2f0c769d957f3c",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 373,
+      "hasStructuralAnalysis": true
+    },
+    "subplans/subplan_3.md": {
+      "filePath": "subplans/subplan_3.md",
+      "contentHash": "63958a83faace7584d30975e22ac1968dd43971c032d8eab0fb7d7bfa71a4069",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 311,
+      "hasStructuralAnalysis": true
+    },
+    "subplans/subplan_4.md": {
+      "filePath": "subplans/subplan_4.md",
+      "contentHash": "72754ec076b225a0cbad1483f32f85ec70e0d06a44e94f960ccfa5f62c5ecf35",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 561,
+      "hasStructuralAnalysis": true
+    },
+    "subplans/subplan_5.md": {
+      "filePath": "subplans/subplan_5.md",
+      "contentHash": "006c80a2952b121c3b894ea777c332df99b1d2bfcb92491889de27c20105e9f7",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 303,
+      "hasStructuralAnalysis": true
+    },
+    "subplans/subplan_6.md": {
+      "filePath": "subplans/subplan_6.md",
+      "contentHash": "a05e6441483f401540365c175096fb70d0b950be155ff3fad544fcb2370313c2",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 576,
+      "hasStructuralAnalysis": true
+    },
+    "tests/__init__.py": {
+      "filePath": "tests/__init__.py",
+      "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 1,
+      "hasStructuralAnalysis": true
+    },
+    "tests/fixtures/fixture_invalid_type.json": {
+      "filePath": "tests/fixtures/fixture_invalid_type.json",
+      "contentHash": "677774837a2cd424f20116edba6feaf86d2edba26855d04d7a92b8bc28938eb2",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 10,
+      "hasStructuralAnalysis": true
+    },
+    "tests/fixtures/fixture_mandatory_escalation.json": {
+      "filePath": "tests/fixtures/fixture_mandatory_escalation.json",
+      "contentHash": "d61a9eaa82f7f00f30faf8dd4670da828aa8caff8f358e98c7c752f5b302e979",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 10,
+      "hasStructuralAnalysis": true
+    },
+    "tests/fixtures/fixture_price_mismatch.json": {
+      "filePath": "tests/fixtures/fixture_price_mismatch.json",
+      "contentHash": "44bda471966a8606c2acd132b264e0b3903f5bd44206ae53375557b53f6802a2",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 10,
+      "hasStructuralAnalysis": true
+    },
+    "tests/fixtures/fixture_quantity_mismatch.json": {
+      "filePath": "tests/fixtures/fixture_quantity_mismatch.json",
+      "contentHash": "fcfc3e82bffe64874469a4aabc62ece0ab85a728098f0934a7ceebd3e2329f06",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 10,
+      "hasStructuralAnalysis": true
+    },
+    "tests/fixtures/fixture_wrong_settlement_date.json": {
+      "filePath": "tests/fixtures/fixture_wrong_settlement_date.json",
+      "contentHash": "f66cd9417e75754e249f0e3e9bda50ab28635d38ed9de11ab0333f75ad8844a5",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 10,
+      "hasStructuralAnalysis": true
+    },
+    "tests/test_agent_smoke.py": {
+      "filePath": "tests/test_agent_smoke.py",
+      "contentHash": "54d7938b4027f015524aa85a7de0f8e73bf5a42c95bbc6269d63a94be152174b",
+      "functions": [
+        {
+          "name": "load_fixture",
+          "params": [
+            "name"
+          ],
+          "returnType": "dict",
+          "exported": true,
+          "lineCount": 5
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "sys",
+          "specifiers": [
+            "sys"
+          ]
+        },
+        {
+          "source": "pathlib",
+          "specifiers": [
+            "Path"
+          ]
+        },
+        {
+          "source": "json",
+          "specifiers": [
+            "json"
+          ]
+        },
+        {
+          "source": "dotenv",
+          "specifiers": [
+            "load_dotenv"
+          ]
+        },
+        {
+          "source": "agent.graph",
+          "specifiers": [
+            "huginn_graph"
+          ]
+        }
+      ],
+      "exports": [
+        "load_fixture"
+      ],
+      "totalLines": 117,
+      "hasStructuralAnalysis": true
+    },
+    "tests/test_agent.py": {
+      "filePath": "tests/test_agent.py",
+      "contentHash": "4782637a944763bef1796ec3754462887679dba6795a22f78e0973dd0ca49ae5",
+      "functions": [
+        {
+          "name": "load_fixture",
+          "params": [
+            "name"
+          ],
+          "returnType": "dict",
+          "exported": true,
+          "lineCount": 4
+        },
+        {
+          "name": "make_initial_state",
+          "params": [
+            "exception",
+            "job_id"
+          ],
+          "returnType": "dict",
+          "exported": true,
+          "lineCount": 17
+        }
+      ],
+      "classes": [
+        {
+          "name": "TestClassifyNode",
+          "methods": [
+            "test_classify_price_mismatch_no_keyword",
+            "test_classify_quantity_mismatch_no_keyword",
+            "test_classify_detects_sanctions_keyword",
+            "test_classify_detects_AML_keyword",
+            "test_classify_detects_regulatory_hold_keyword",
+            "test_classify_keyword_detection_is_case_insensitive"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 40
+        },
+        {
+          "name": "TestDecideNode",
+          "methods": [
+            "test_decide_auto_resolve_at_threshold",
+            "test_decide_auto_resolve_above_threshold",
+            "test_decide_escalate_below_threshold",
+            "test_decide_escalate_on_none_confidence",
+            "test_decide_escalate_at_zero"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 30
+        },
+        {
+          "name": "TestEscalateFastExitNode",
+          "methods": [
+            "test_fast_exit_sets_correct_outcome",
+            "test_fast_exit_nulls_llm_fields"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 17
+        },
+        {
+          "name": "TestAgentGraph",
+          "methods": [
+            "setup_method",
+            "test_fast_exit_path_sanctions",
+            "test_standard_path_produces_valid_outcome",
+            "test_standard_path_quantity_mismatch",
+            "test_audit_log_written_for_all_paths",
+            "test_escalation_queue_only_contains_escalated"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 74
+        }
+      ],
+      "imports": [
+        {
+          "source": "json",
+          "specifiers": [
+            "json"
+          ]
+        },
+        {
+          "source": "pytest",
+          "specifiers": [
+            "pytest"
+          ]
+        },
+        {
+          "source": "pathlib",
+          "specifiers": [
+            "Path"
+          ]
+        },
+        {
+          "source": "dotenv",
+          "specifiers": [
+            "load_dotenv"
+          ]
+        },
+        {
+          "source": "agent.nodes",
+          "specifiers": [
+            "classify",
+            "retrieve_node",
+            "escalate_fast_exit",
+            "decide",
+            "log_result"
+          ]
+        },
+        {
+          "source": "agent.graph",
+          "specifiers": [
+            "huginn_graph"
+          ]
+        }
+      ],
+      "exports": [
+        "load_fixture",
+        "make_initial_state",
+        "TestClassifyNode",
+        "TestDecideNode",
+        "TestEscalateFastExitNode",
+        "TestAgentGraph"
+      ],
+      "totalLines": 227,
+      "hasStructuralAnalysis": true
+    },
+    "tests/test_api.py": {
+      "filePath": "tests/test_api.py",
+      "contentHash": "3c4b9ff7fe854b4778066a93fd438e8ae9121074b355e3a5b4dca1701c5ef3b4",
+      "functions": [
+        {
+          "name": "load_fixture",
+          "params": [
+            "name"
+          ],
+          "returnType": "dict",
+          "exported": true,
+          "lineCount": 2
+        }
+      ],
+      "classes": [
+        {
+          "name": "TestAPIEndpoints",
+          "methods": [
+            "setup_method",
+            "test_post_exception_valid_returns_200",
+            "test_post_exception_response_schema",
+            "test_post_exception_invalid_type_returns_422",
+            "test_post_exception_missing_field_returns_422",
+            "test_get_exception_result_returns_200",
+            "test_get_exception_result_schema",
+            "test_get_exception_unknown_job_id_returns_404",
+            "test_standard_path_price_mismatch_has_retrieved_document",
+            "test_fast_exit_path_sanctions_keyword",
+            "test_get_escalations_returns_200",
+            "test_get_escalations_empty_when_no_escalations",
+            "test_get_escalations_contains_escalated_exception",
+            "test_get_escalations_does_not_contain_auto_resolved",
+            "test_audit_jsonl_written_after_submission",
+            "test_sqlite_record_written_after_submission",
+            "test_escalation_queue_written_for_fast_exit"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 173
+        }
+      ],
+      "imports": [
+        {
+          "source": "json",
+          "specifiers": [
+            "json"
+          ]
+        },
+        {
+          "source": "pytest",
+          "specifiers": [
+            "pytest"
+          ]
+        },
+        {
+          "source": "sqlite3",
+          "specifiers": [
+            "sqlite3"
+          ]
+        },
+        {
+          "source": "pathlib",
+          "specifiers": [
+            "Path"
+          ]
+        },
+        {
+          "source": "dotenv",
+          "specifiers": [
+            "load_dotenv"
+          ]
+        },
+        {
+          "source": "fastapi.testclient",
+          "specifiers": [
+            "TestClient"
+          ]
+        },
+        {
+          "source": "api.main",
+          "specifiers": [
+            "app"
+          ]
+        }
+      ],
+      "exports": [
+        "load_fixture",
+        "TestAPIEndpoints"
+      ],
+      "totalLines": 196,
+      "hasStructuralAnalysis": true
+    },
+    "tests/test_logger_smoke.py": {
+      "filePath": "tests/test_logger_smoke.py",
+      "contentHash": "7f7ba4ef0bb78b4a043e52f8769e2016ff405b4b8d5c20bd5e0c7c2975a91eb7",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "sys",
+          "specifiers": [
+            "sys"
+          ]
+        },
+        {
+          "source": "pathlib",
+          "specifiers": [
+            "Path"
+          ]
+        },
+        {
+          "source": "json",
+          "specifiers": [
+            "json"
+          ]
+        },
+        {
+          "source": "sqlite3",
+          "specifiers": [
+            "sqlite3"
+          ]
+        },
+        {
+          "source": "logger.audit",
+          "specifiers": [
+            "log"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 119,
+      "hasStructuralAnalysis": true
+    },
+    "tests/test_mimir_smoke.py": {
+      "filePath": "tests/test_mimir_smoke.py",
+      "contentHash": "aa66b1d8aea2d95fcd2fbefbcd5f94b18852af7574b38f6dd32b925f5769fe74",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "sys",
+          "specifiers": [
+            "sys"
+          ]
+        },
+        {
+          "source": "pathlib",
+          "specifiers": [
+            "Path"
+          ]
+        },
+        {
+          "source": "mimir.retriever",
+          "specifiers": [
+            "retrieve"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 60,
+      "hasStructuralAnalysis": true
+    },
+    "tests/test_mimir.py": {
+      "filePath": "tests/test_mimir.py",
+      "contentHash": "0d7f6cbbfc67eaf18c29a56cc57f346819779c0cafe59cc7a4f33b7c431291fb",
+      "functions": [],
+      "classes": [
+        {
+          "name": "TestMimirRetrieve",
+          "methods": [
+            "test_price_mismatch_returns_correct_document",
+            "test_quantity_mismatch_returns_correct_document",
+            "test_wrong_settlement_date_returns_correct_document",
+            "test_each_chunk_has_required_fields",
+            "test_returns_empty_list_not_exception_on_unusual_query",
+            "test_top_k_parameter_respected"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 51
+        }
+      ],
+      "imports": [
+        {
+          "source": "pytest",
+          "specifiers": [
+            "pytest"
+          ]
+        },
+        {
+          "source": "mimir.retriever",
+          "specifiers": [
+            "retrieve"
+          ]
+        }
+      ],
+      "exports": [
+        "TestMimirRetrieve"
+      ],
+      "totalLines": 58,
+      "hasStructuralAnalysis": true
+    },
+    "tests/test_schema_smoke.py": {
+      "filePath": "tests/test_schema_smoke.py",
+      "contentHash": "0f2ce0b60046a6964ea4208ab4fbd8d8c283e62712b45a919fbe811f64a4dcc1",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "sys",
+          "specifiers": [
+            "sys"
+          ]
+        },
+        {
+          "source": "json",
+          "specifiers": [
+            "json"
+          ]
+        },
+        {
+          "source": "pathlib",
+          "specifiers": [
+            "Path"
+          ]
+        },
+        {
+          "source": "pydantic",
+          "specifiers": [
+            "ValidationError"
+          ]
+        },
+        {
+          "source": "models.exception",
+          "specifiers": [
+            "TradeException"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 32,
+      "hasStructuralAnalysis": true
+    },
+    "walkthrough/agent_graph.md": {
+      "filePath": "walkthrough/agent_graph.md",
+      "contentHash": "92774e9dd3d0dd13521dfe194ce3fc3f94cb8bc814caea368dca32d709c08998",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 44,
+      "hasStructuralAnalysis": true
+    },
+    "walkthrough/agent_nodes.md": {
+      "filePath": "walkthrough/agent_nodes.md",
+      "contentHash": "578e0eb7330422147fb93fd04ca795312783f466c737f730596e152a5911a984",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 79,
+      "hasStructuralAnalysis": true
+    },
+    "walkthrough/agent_state.md": {
+      "filePath": "walkthrough/agent_state.md",
+      "contentHash": "d9ba809eea4267d306f191cdbda2c5f2425b441ddee63dfb39b835ba05eef64e",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 42,
+      "hasStructuralAnalysis": true
+    },
+    "walkthrough/api_main.md": {
+      "filePath": "walkthrough/api_main.md",
+      "contentHash": "13009bb553edb2d603cf5fac18f8b04dc72956b1ebe8946c5be4544bc6ccb8bd",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 48,
+      "hasStructuralAnalysis": true
+    },
+    "walkthrough/logger_audit.md": {
+      "filePath": "walkthrough/logger_audit.md",
+      "contentHash": "00533e69a92509e5a0624d824cd3b2a571936c74c1ede438fba704d199cc7531",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 51,
+      "hasStructuralAnalysis": true
+    },
+    "walkthrough/mimir_index.md": {
+      "filePath": "walkthrough/mimir_index.md",
+      "contentHash": "862d6ad372b0fc89fa984acd152976a895de7d52e5b5b7bfb69389e78d18dfc8",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 44,
+      "hasStructuralAnalysis": true
+    },
+    "walkthrough/mimir_retriever.md": {
+      "filePath": "walkthrough/mimir_retriever.md",
+      "contentHash": "11c659a99caf5bb1be7d21fa5961e9fa81491e2d6d161f4de3a7b4d3f28d63ef",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 45,
+      "hasStructuralAnalysis": true
+    },
+    "walkthrough/models_exception.md": {
+      "filePath": "walkthrough/models_exception.md",
+      "contentHash": "1de11b4ad9f947f94f50de0a873f62696d6faddbe9514e54d787572f9910055d",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 47,
+      "hasStructuralAnalysis": true
+    },
+    "walkthrough/scripts_build_index.md": {
+      "filePath": "walkthrough/scripts_build_index.md",
+      "contentHash": "5903b0d72654a94ff597a2ef4959fbb0c8fbf6e496bb3845d0b849325cd707e3",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 49,
+      "hasStructuralAnalysis": true
+    }
+  }
+}

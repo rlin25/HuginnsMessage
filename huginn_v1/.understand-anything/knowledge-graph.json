@@ -1,0 +1,2550 @@
+{
+  "version": "1.0.0",
+  "project": {
+    "name": "huginn_v1",
+    "languages": [
+      "json",
+      "markdown",
+      "python",
+      "txt"
+    ],
+    "frameworks": [
+      "Anthropic SDK",
+      "Chroma",
+      "FastAPI",
+      "LangChain",
+      "LangGraph",
+      "Pydantic",
+      "pytest",
+      "sentence-transformers"
+    ],
+    "description": "Huginn is a financial trade exception processing agent built design-first, using a three-path LangGraph state machine to classify exceptions, retrieve relevant SOPs from a Chroma vector store, and call the Claude API for confidence-scored resolution or escalation decisions.",
+    "analyzedAt": "2026-05-24T17:14:56.196Z",
+    "gitCommitHash": "f6d9bcbc44058260aa77d36eab4c26012c006501"
+  },
+  "nodes": [
+    {
+      "id": "file:agent/graph.py",
+      "type": "file",
+      "name": "graph.py",
+      "filePath": "agent/graph.py",
+      "summary": "Constructs and compiles the LangGraph three-path state machine for trade exception triage, wiring conditional routing for invalid-type fast-exit, mandatory escalation fast-exit, and the standard classify-retrieve-reason-decide-log path.",
+      "tags": [
+        "entry-point",
+        "service",
+        "state-machine",
+        "tested"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:agent/nodes.py",
+      "type": "file",
+      "name": "nodes.py",
+      "filePath": "agent/nodes.py",
+      "summary": "Implements all LangGraph node functions for the Huginn agent: exception classification, SOP chunk retrieval, Claude-powered LLM reasoning, confidence-based decision making, fast-exit escalation, and structured audit logging.",
+      "tags": [
+        "service",
+        "api-handler",
+        "event-handler"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:agent/state.py",
+      "type": "file",
+      "name": "state.py",
+      "filePath": "agent/state.py",
+      "summary": "Defines the AgentState TypedDict that carries all shared state across the LangGraph pipeline, including exception payload, classification results, LLM outputs, confidence scores, and audit fields.",
+      "tags": [
+        "data-model",
+        "type-definition"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:tests/test_agent.py",
+      "type": "file",
+      "name": "test_agent.py",
+      "filePath": "tests/test_agent.py",
+      "summary": "Comprehensive unit and integration test suite covering the classify, decide, and escalate_fast_exit nodes individually, plus end-to-end graph execution tests verifying audit log and escalation queue outputs.",
+      "tags": [
+        "test",
+        "validation"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:tests/test_agent_smoke.py",
+      "type": "file",
+      "name": "test_agent_smoke.py",
+      "filePath": "tests/test_agent_smoke.py",
+      "summary": "Smoke test suite that invokes the compiled graph end-to-end against real fixtures to verify the agent produces valid outcomes without mocking the LLM or retrieval layers.",
+      "tags": [
+        "test",
+        "validation"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:agent/graph.py:should_fast_exit",
+      "type": "function",
+      "name": "should_fast_exit",
+      "filePath": "agent/graph.py",
+      "lineRange": [
+        15,
+        19
+      ],
+      "summary": "Conditional routing predicate that checks whether the exception type is invalid and should be immediately fast-exited without further processing.",
+      "tags": [
+        "event-handler",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:agent/graph.py:should_escalate",
+      "type": "function",
+      "name": "should_escalate",
+      "filePath": "agent/graph.py",
+      "lineRange": [
+        22,
+        26
+      ],
+      "summary": "Conditional routing predicate that checks whether a triggered keyword mandates immediate escalation, bypassing the standard LLM reasoning path.",
+      "tags": [
+        "event-handler",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:agent/graph.py:build_graph",
+      "type": "function",
+      "name": "build_graph",
+      "filePath": "agent/graph.py",
+      "lineRange": [
+        29,
+        73
+      ],
+      "summary": "Assembles and compiles the full LangGraph StateGraph by registering all node functions, setting the entry point, and wiring conditional and unconditional edges for all three execution paths.",
+      "tags": [
+        "factory",
+        "service"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:agent/nodes.py:classify",
+      "type": "function",
+      "name": "classify",
+      "filePath": "agent/nodes.py",
+      "lineRange": [
+        25,
+        44
+      ],
+      "summary": "Classifies a trade exception by type and scans its description for mandatory-escalation keywords (sanctions, AML, regulatory hold), setting exception_type, exception_sub_type, and triggered_keyword on the state.",
+      "tags": [
+        "validation",
+        "event-handler"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:agent/nodes.py:retrieve_node",
+      "type": "function",
+      "name": "retrieve_node",
+      "filePath": "agent/nodes.py",
+      "lineRange": [
+        51,
+        68
+      ],
+      "summary": "Queries the Chroma RAG retriever with the exception description to fetch the most relevant SOP document chunks, storing them and the source document ID on state.",
+      "tags": [
+        "service",
+        "api-handler"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:agent/nodes.py:reason",
+      "type": "function",
+      "name": "reason",
+      "filePath": "agent/nodes.py",
+      "lineRange": [
+        103,
+        174
+      ],
+      "summary": "Invokes Claude via the Anthropic API with a structured prompt containing the exception details and retrieved SOP chunks, then parses the JSON response to extract confidence score and reasoning trace.",
+      "tags": [
+        "api-handler",
+        "service"
+      ],
+      "complexity": "complex",
+      "languageNotes": "Calls anthropic.Anthropic() directly with os.environ for the API key and parses raw LLM JSON output with manual string cleaning before json.loads."
+    },
+    {
+      "id": "function:agent/nodes.py:decide",
+      "type": "function",
+      "name": "decide",
+      "filePath": "agent/nodes.py",
+      "lineRange": [
+        181,
+        207
+      ],
+      "summary": "Applies a confidence threshold to determine whether the exception should be auto-resolved or escalated, setting the outcome field on state.",
+      "tags": [
+        "event-handler",
+        "validation"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:agent/nodes.py:escalate_fast_exit",
+      "type": "function",
+      "name": "escalate_fast_exit",
+      "filePath": "agent/nodes.py",
+      "lineRange": [
+        214,
+        230
+      ],
+      "summary": "Handles mandatory escalation fast-exit path by setting the ESCALATED outcome and nulling LLM-specific fields that were never populated, then calling the audit logger.",
+      "tags": [
+        "event-handler",
+        "service"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:agent/nodes.py:log_result",
+      "type": "function",
+      "name": "log_result",
+      "filePath": "agent/nodes.py",
+      "lineRange": [
+        237,
+        267
+      ],
+      "summary": "Assembles a structured audit record from all state fields and writes it to the audit log, forming the terminal node for every execution path through the graph.",
+      "tags": [
+        "service",
+        "serialization"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:agent/state.py:AgentState",
+      "type": "class",
+      "name": "AgentState",
+      "filePath": "agent/state.py",
+      "lineRange": [
+        6,
+        31
+      ],
+      "summary": "TypedDict defining the complete shared state contract for the LangGraph pipeline, with 14 typed fields covering the exception payload, classification outputs, retrieval results, LLM reasoning, confidence score, and decision outcome.",
+      "tags": [
+        "data-model",
+        "type-definition"
+      ],
+      "complexity": "simple",
+      "languageNotes": "Uses TypedDict rather than a dataclass or Pydantic model, keeping it compatible with LangGraph's state channel protocol."
+    },
+    {
+      "id": "class:tests/test_agent.py:TestClassifyNode",
+      "type": "class",
+      "name": "TestClassifyNode",
+      "filePath": "tests/test_agent.py",
+      "lineRange": [
+        48,
+        87
+      ],
+      "summary": "Unit tests for the classify node, covering price mismatch, quantity mismatch, and keyword detection for sanctions, AML, and regulatory hold including case-insensitivity.",
+      "tags": [
+        "test",
+        "validation"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:tests/test_agent.py:TestDecideNode",
+      "type": "class",
+      "name": "TestDecideNode",
+      "filePath": "tests/test_agent.py",
+      "lineRange": [
+        94,
+        123
+      ],
+      "summary": "Unit tests for the decide node verifying auto-resolve at and above threshold and escalation below threshold, on None confidence, and at zero confidence.",
+      "tags": [
+        "test",
+        "validation"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:tests/test_agent.py:TestEscalateFastExitNode",
+      "type": "class",
+      "name": "TestEscalateFastExitNode",
+      "filePath": "tests/test_agent.py",
+      "lineRange": [
+        130,
+        146
+      ],
+      "summary": "Unit tests for the escalate_fast_exit node verifying it sets the correct ESCALATED outcome and nulls LLM fields.",
+      "tags": [
+        "test",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:tests/test_agent.py:TestAgentGraph",
+      "type": "class",
+      "name": "TestAgentGraph",
+      "filePath": "tests/test_agent.py",
+      "lineRange": [
+        153,
+        226
+      ],
+      "summary": "End-to-end integration tests for the compiled graph covering the fast-exit sanctions path, standard price and quantity mismatch paths, and assertions on audit log and escalation queue file outputs.",
+      "tags": [
+        "test",
+        "validation"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:tests/test_agent.py:make_initial_state",
+      "type": "function",
+      "name": "make_initial_state",
+      "filePath": "tests/test_agent.py",
+      "lineRange": [
+        25,
+        41
+      ],
+      "summary": "Test helper that constructs a fully initialized AgentState dict from a fixture exception payload and job ID, pre-populating all optional fields to None.",
+      "tags": [
+        "test",
+        "utility"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:api/main.py",
+      "type": "file",
+      "name": "main.py",
+      "filePath": "api/main.py",
+      "summary": "FastAPI application defining the three core endpoints (POST /exceptions, GET /exceptions/{job_id}, GET /escalations) that drive trade exception triage — invoking the LangGraph agent, persisting results to an in-memory store, JSONL audit log, SQLite, and an escalation queue.",
+      "tags": [
+        "api-handler",
+        "entry-point",
+        "service",
+        "middleware",
+        "tested"
+      ],
+      "complexity": "complex",
+      "languageNotes": "Uses a synchronous in-process fake-async pattern: the LangGraph agent is invoked synchronously inside the async FastAPI handler, and results are stored in a module-level dict (_result_store) instead of a real async job queue."
+    },
+    {
+      "id": "function:api/main.py:submit_exception",
+      "type": "function",
+      "name": "submit_exception",
+      "filePath": "api/main.py",
+      "lineRange": [
+        33,
+        86
+      ],
+      "summary": "POST /exceptions handler that deserializes the incoming TradeException, invokes the Huginn LangGraph agent synchronously, persists the triage result to the in-memory store, JSONL audit log, and SQLite database, and returns a job ID with outcome.",
+      "tags": [
+        "api-handler",
+        "entry-point",
+        "service"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:api/main.py:get_exception_result",
+      "type": "function",
+      "name": "get_exception_result",
+      "filePath": "api/main.py",
+      "lineRange": [
+        94,
+        101
+      ],
+      "summary": "GET /exceptions/{job_id} handler that retrieves a previously processed triage result from the in-memory result store, returning 404 if the job ID is unknown.",
+      "tags": [
+        "api-handler",
+        "service"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:api/main.py:get_escalations",
+      "type": "function",
+      "name": "get_escalations",
+      "filePath": "api/main.py",
+      "lineRange": [
+        109,
+        140
+      ],
+      "summary": "GET /escalations handler that reads the escalation queue JSONL file, parses each record, and returns a list of trade exceptions flagged for human review.",
+      "tags": [
+        "api-handler",
+        "service"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:models/exception.py",
+      "type": "file",
+      "name": "exception.py",
+      "filePath": "models/exception.py",
+      "summary": "Defines the core domain model for trade exceptions, including the TradeException Pydantic model with field validation and three supporting enums (ExceptionType, SettlementMismatchSubType, Severity) used across the API and agent layers.",
+      "tags": [
+        "data-model",
+        "type-definition",
+        "validation",
+        "schema-definition",
+        "tested"
+      ],
+      "complexity": "simple",
+      "languageNotes": "Uses Pydantic v2 BaseModel with a model_validator for cross-field validation (sub_type must be set only when type is SETTLEMENT_MISMATCH), and str-based Python Enum subclasses for type safety."
+    },
+    {
+      "id": "class:models/exception.py:TradeException",
+      "type": "class",
+      "name": "TradeException",
+      "filePath": "models/exception.py",
+      "lineRange": [
+        23,
+        37
+      ],
+      "summary": "Pydantic v2 model representing a trade exception with seven fields (exception_id, trade_id, type, sub_type, description, timestamp, severity) and a cross-field validator ensuring sub_type is only present for settlement mismatch exceptions.",
+      "tags": [
+        "data-model",
+        "validation",
+        "type-definition"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:tests/test_api.py",
+      "type": "file",
+      "name": "test_api.py",
+      "filePath": "tests/test_api.py",
+      "summary": "Comprehensive integration test suite for all three FastAPI endpoints, covering happy-path responses, schema validation, 422/404 error cases, agent routing paths (standard vs fast-exit), and persistence side-effects (audit JSONL, SQLite, escalation queue).",
+      "tags": [
+        "test",
+        "api-handler",
+        "validation"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "class:tests/test_api.py:TestAPIEndpoints",
+      "type": "class",
+      "name": "TestAPIEndpoints",
+      "filePath": "tests/test_api.py",
+      "lineRange": [
+        23,
+        195
+      ],
+      "summary": "pytest test class with 17 test methods exercising all three API endpoints via a TestClient, including fixture-driven happy-path tests, error cases, agent routing assertions, and side-effect persistence checks.",
+      "tags": [
+        "test",
+        "api-handler",
+        "validation"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:tests/test_schema_smoke.py",
+      "type": "file",
+      "name": "test_schema_smoke.py",
+      "filePath": "tests/test_schema_smoke.py",
+      "summary": "Standalone smoke test script that instantiates TradeException from five fixture files to verify Pydantic validation accepts valid payloads and correctly rejects an invalid type fixture with a ValidationError.",
+      "tags": [
+        "test",
+        "validation",
+        "data-model"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:mimir/index.py",
+      "type": "file",
+      "name": "index.py",
+      "filePath": "mimir/index.py",
+      "summary": "Provides a lazy singleton accessor for the Chroma vector store, initializing HuggingFace embeddings and the persisted Chroma collection on first call and caching the instance for subsequent calls.",
+      "tags": [
+        "singleton",
+        "vector-store",
+        "factory",
+        "service"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:mimir/index.py:get_vectorstore",
+      "type": "function",
+      "name": "get_vectorstore",
+      "filePath": "mimir/index.py",
+      "lineRange": [
+        12,
+        24
+      ],
+      "summary": "Lazily initializes and returns the Chroma vector store singleton backed by all-mpnet-base-v2 embeddings; subsequent calls return the cached instance.",
+      "tags": [
+        "singleton",
+        "factory",
+        "vector-store"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:mimir/retriever.py",
+      "type": "file",
+      "name": "retriever.py",
+      "filePath": "mimir/retriever.py",
+      "summary": "Exposes the single public RAG retrieval function retrieve(), which queries the Chroma vector store and returns the top-k matching document chunks with metadata and similarity scores.",
+      "tags": [
+        "service",
+        "utility",
+        "entry-point",
+        "api-handler",
+        "tested"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:mimir/retriever.py:retrieve",
+      "type": "function",
+      "name": "retrieve",
+      "filePath": "mimir/retriever.py",
+      "lineRange": [
+        6,
+        36
+      ],
+      "summary": "Queries the vector store with the given text and returns a list of up to top_k dicts containing document_id, sub_type, text, and similarity_score fields.",
+      "tags": [
+        "service",
+        "utility",
+        "vector-store"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:tests/test_mimir.py",
+      "type": "file",
+      "name": "test_mimir.py",
+      "filePath": "tests/test_mimir.py",
+      "summary": "Unit test suite for the Mimir retriever covering correct document retrieval for each mismatch sub-type, required chunk fields, empty-list safety, and top_k parameter behavior.",
+      "tags": [
+        "test",
+        "validation",
+        "service"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:tests/test_mimir.py:TestMimirRetrieve",
+      "type": "class",
+      "name": "TestMimirRetrieve",
+      "filePath": "tests/test_mimir.py",
+      "lineRange": [
+        7,
+        57
+      ],
+      "summary": "Test class with six test methods exercising retrieve() against price, quantity, and settlement-date mismatch queries, as well as field-presence, empty-result safety, and top_k constraints.",
+      "tags": [
+        "test",
+        "validation"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:tests/test_mimir_smoke.py",
+      "type": "file",
+      "name": "test_mimir_smoke.py",
+      "filePath": "tests/test_mimir_smoke.py",
+      "summary": "Script-style smoke test that runs three labelled queries through retrieve() and asserts the top result matches the expected document_id, sub_type, text, and similarity_score for each; acts as a gate before Subplan 3.",
+      "tags": [
+        "test",
+        "validation",
+        "entry-point"
+      ],
+      "complexity": "simple",
+      "languageNotes": "Implemented as a top-level script rather than a unittest/pytest class, with sys.path manipulation for direct execution outside a test runner."
+    },
+    {
+      "id": "document:README.md",
+      "type": "document",
+      "name": "README.md",
+      "filePath": "README.md",
+      "summary": "Primary public-facing overview of Huginn: describes the project's design-first methodology, what the system does (trade exception triage using a three-path state machine and Claude API reasoning), how it was built through a six-phase process, and setup/demo instructions. Acts as the entry point for all companion documentation.",
+      "tags": [
+        "documentation",
+        "entry-point",
+        "overview",
+        "portfolio"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:DESIGN.md",
+      "type": "document",
+      "name": "DESIGN.md",
+      "filePath": "DESIGN.md",
+      "summary": "Architecture reference covering Huginn's five components (API layer, LangGraph agent, Mimir retriever, knowledge base, audit logger), the three-path state machine with ASCII flow diagram, and eight interview-worthy design decisions cross-referenced to the full decisions register. The authoritative guide to how the system thinks.",
+      "tags": [
+        "documentation",
+        "architecture",
+        "state-machine",
+        "design"
+      ],
+      "complexity": "complex",
+      "languageNotes": "22 sections spanning system overview, component descriptions, state machine paths, key decisions, and v1 scope boundaries. Cross-references DESIGN_DECISIONS.md by decision number."
+    },
+    {
+      "id": "document:DESIGN_DECISIONS.md",
+      "type": "document",
+      "name": "DESIGN_DECISIONS.md",
+      "filePath": "DESIGN_DECISIONS.md",
+      "summary": "Exhaustive register of all 28 locked design decisions for Huginn v1, each with the decision taken, explicit reasoning, and at least one rejected alternative documented. Includes reference appendices for mandatory escalation keywords, exception type taxonomy, settlement mismatch sub-types, and v1 scope boundaries. The primary artifact carrying architectural intent across versions.",
+      "tags": [
+        "documentation",
+        "design",
+        "architecture",
+        "decision-record"
+      ],
+      "complexity": "complex",
+      "languageNotes": "33 sections; decisions numbered 1-28 plus four reference appendices. Each decision entry follows a strict Decision / Reasoning / Rejected option structure that makes the rationale traceable."
+    },
+    {
+      "id": "document:INTERFACE_CONTRACT.md",
+      "type": "document",
+      "name": "INTERFACE_CONTRACT.md",
+      "filePath": "INTERFACE_CONTRACT.md",
+      "summary": "Definitive pre-implementation specification of every component's inputs, outputs, and data types: exception Pydantic model, three API endpoint request/response schemas, LangGraph agent state object and node specs, Mimir retriever function signature, LLM prompt structure and output schema, audit logger interface, SQLite schema, and component interaction summary. Written before any code and treated as the authoritative source of truth if implementation conflicts arise.",
+      "tags": [
+        "documentation",
+        "api-schema",
+        "schema-definition",
+        "specification"
+      ],
+      "complexity": "complex",
+      "languageNotes": "32 sections covering all six components; includes inline code blocks for Pydantic models, JSON response schemas, and Python function signatures. Governed by design decisions cited per component."
+    },
+    {
+      "id": "document:docs/architecture.md",
+      "type": "document",
+      "name": "architecture.md",
+      "filePath": "docs/architecture.md",
+      "summary": "Comprehensive architecture document for Huginn v1 covering all five components (FastAPI, LangGraph agent, Mimir retrieval, knowledge base, audit logger), their communication flow, folder structure, library stack, a six-step build sequence, exception taxonomy, and explicit v1 scope boundaries.",
+      "tags": [
+        "documentation",
+        "architecture",
+        "design",
+        "component-structure",
+        "build-system"
+      ],
+      "complexity": "complex",
+      "languageNotes": "Includes an ASCII state machine diagram illustrating the three execution paths (standard, fast-exit escalation, invalid type error) and a full library justification table."
+    },
+    {
+      "id": "document:docs/design_decisions.md",
+      "type": "document",
+      "name": "design_decisions.md",
+      "filePath": "docs/design_decisions.md",
+      "summary": "Locked design decision record for Huginn v1 containing 28 numbered decisions covering exception type scope, settlement sub-types, audit log storage, LLM choice, escalation queue format, API response schemas, Mimir function signatures, confidence scoring, prompt inputs, structured LLM output, and API failure handling — each with explicit decision, reasoning, and rejected alternatives.",
+      "tags": [
+        "documentation",
+        "design",
+        "decision-log",
+        "architecture",
+        "specification"
+      ],
+      "complexity": "complex",
+      "languageNotes": "Each decision follows a three-field format (Decision / Reasoning / Rejected option), making the rationale for every locked choice fully traceable."
+    },
+    {
+      "id": "document:docs/glossary.md",
+      "type": "document",
+      "name": "glossary.md",
+      "filePath": "docs/glossary.md",
+      "summary": "Three-part reference glossary for Huginn v1 covering financial domain vocabulary and system overview (Part 1), state machine and execution path terms (Part 2), and a per-file implementation reference mapping each source module to its key symbols, functions, and responsibilities (Part 3).",
+      "tags": [
+        "documentation",
+        "glossary",
+        "reference",
+        "domain-knowledge",
+        "implementation-reference"
+      ],
+      "complexity": "complex",
+      "languageNotes": "Part 3 is structured as per-file subsections (e.g., models/exception.py, mimir/retriever.py) making it simultaneously a domain dictionary and a lightweight code reference."
+    },
+    {
+      "id": "document:docs/interface_contract.md",
+      "type": "document",
+      "name": "interface_contract.md",
+      "filePath": "docs/interface_contract.md",
+      "summary": "Authoritative interface contract for all six Huginn v1 components, specifying exact Pydantic models, API endpoint request/response schemas, LangGraph agent state object, Mimir retriever function signature and query construction rules, LLM prompt structure and required output schema, audit logger input dict fields and write destinations, and a full SQLite schema — the canonical build specification.",
+      "tags": [
+        "documentation",
+        "specification",
+        "api-schema",
+        "interface-definition",
+        "contract"
+      ],
+      "complexity": "complex",
+      "languageNotes": "Includes inline Python code blocks for the Pydantic models and JSON examples for all API response schemas, making this both a narrative spec and a code template."
+    },
+    {
+      "id": "document:docs/setup_notes.md",
+      "type": "document",
+      "name": "setup_notes.md",
+      "filePath": "docs/setup_notes.md",
+      "summary": "Pre-build developer onboarding guide covering a curated reading list (LangGraph, RAG, FastAPI, financial domain) with time estimates and focus notes, eight environment setup steps from virtualenv creation through folder structure scaffolding, and a troubleshooting section documenting six known issues encountered during environment setup.",
+      "tags": [
+        "documentation",
+        "setup",
+        "onboarding",
+        "environment",
+        "troubleshooting"
+      ],
+      "complexity": "complex",
+      "languageNotes": "Includes actual time estimates vs. actual durations for reading tasks and notes LangChain's documentation issue of defaulting to OpenAI examples requiring translation to Anthropic equivalents."
+    },
+    {
+      "id": "document:knowledge_base/raw/sop_price_mismatch.txt",
+      "type": "document",
+      "name": "sop_price_mismatch.txt",
+      "filePath": "knowledge_base/raw/sop_price_mismatch.txt",
+      "summary": "Arcturus Capital Management Standard Operating Procedure (SOP-SM-001) for settlement price mismatch exceptions, covering identification thresholds, a 7-step resolution procedure, escalation triggers (including sanctions/AML watchlist cases), and auto-resolution criteria for the Huginn RAG knowledge base.",
+      "tags": [
+        "documentation",
+        "sop",
+        "trade-exception",
+        "settlement",
+        "escalation"
+      ],
+      "complexity": "moderate",
+      "languageNotes": "Plain-text SOP document ingested as a RAG source; sub-type tag 'price_mismatch' aligns directly with the classifier labels used by the LangGraph agent."
+    },
+    {
+      "id": "document:knowledge_base/raw/sop_quantity_mismatch.txt",
+      "type": "document",
+      "name": "sop_quantity_mismatch.txt",
+      "filePath": "knowledge_base/raw/sop_quantity_mismatch.txt",
+      "summary": "Arcturus Capital Management Standard Operating Procedure (SOP-SM-002) for settlement quantity mismatch exceptions, detailing a 9-step resolution procedure including corporate action handling, partial settlement options, escalation triggers, and auto-resolution criteria for the Huginn RAG knowledge base.",
+      "tags": [
+        "documentation",
+        "sop",
+        "trade-exception",
+        "settlement",
+        "escalation"
+      ],
+      "complexity": "moderate",
+      "languageNotes": "Plain-text SOP document ingested as a RAG source; sub-type tag 'quantity_mismatch' aligns directly with the classifier labels used by the LangGraph agent."
+    },
+    {
+      "id": "document:knowledge_base/raw/sop_wrong_settlement_date.txt",
+      "type": "document",
+      "name": "sop_wrong_settlement_date.txt",
+      "filePath": "knowledge_base/raw/sop_wrong_settlement_date.txt",
+      "summary": "Arcturus Capital Management Standard Operating Procedure (SOP-SM-003) for wrong settlement date exceptions — the most time-critical mismatch type — covering T+1/T+2 convention verification, holiday calendar checks, CSDR penalty handling, and a 1-hour escalation window for the Huginn RAG knowledge base.",
+      "tags": [
+        "documentation",
+        "sop",
+        "trade-exception",
+        "settlement",
+        "escalation"
+      ],
+      "complexity": "moderate",
+      "languageNotes": "Plain-text SOP document ingested as a RAG source; sub-type tag 'wrong_settlement_date' aligns directly with the classifier labels used by the LangGraph agent. This SOP explicitly notes the shortest escalation window (1 hour) among the three SOPs."
+    },
+    {
+      "id": "document:prompts/01_design_methodology.md",
+      "type": "document",
+      "name": "01_design_methodology.md",
+      "filePath": "prompts/01_design_methodology.md",
+      "summary": "A comprehensive prompt document defining the development methodology and Claude collaboration framework used to build Huginn, covering a seven-phase project workflow, three metacognitive methods (Socratic, Rubber Duck, Draft-and-Challenge), pre-implementation verification checklists, behavioral instructions for Claude, versioning strategy, and the vertical slicing principle.",
+      "tags": [
+        "documentation",
+        "development",
+        "methodology",
+        "ai-collaboration",
+        "process"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "document:prompts/02_readme_generation.md",
+      "type": "document",
+      "name": "02_readme_generation.md",
+      "filePath": "prompts/02_readme_generation.md",
+      "summary": "A structured prompt instructing Claude how to generate the project's documentation suite (README.md, DESIGN.md, INTERFACE_CONTRACT.md, DESIGN_DECISIONS.md, and prompts/README.md), specifying the exact content, audience framing, and section structure for each document.",
+      "tags": [
+        "documentation",
+        "readme-generation",
+        "ai-collaboration",
+        "content-generation"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "document:prompts/03_generate_walkthrough.md",
+      "type": "document",
+      "name": "03_generate_walkthrough.md",
+      "filePath": "prompts/03_generate_walkthrough.md",
+      "summary": "A prompt instructing Claude to generate a walkthrough directory for the Huginn project, providing a guided narrative tour of the codebase structure and execution flow.",
+      "tags": [
+        "documentation",
+        "walkthrough",
+        "ai-collaboration",
+        "content-generation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:prompts/04_rewrite_glossary.md",
+      "type": "document",
+      "name": "04_rewrite_glossary.md",
+      "filePath": "prompts/04_rewrite_glossary.md",
+      "summary": "A prompt instructing Claude to rewrite the project glossary with three structured parts covering domain and system overview, state machine and execution paths, and implementation reference terms for the Huginn financial trade exception triage system.",
+      "tags": [
+        "documentation",
+        "glossary",
+        "ai-collaboration",
+        "domain-knowledge"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:prompts/README.md",
+      "type": "document",
+      "name": "README.md",
+      "filePath": "prompts/README.md",
+      "summary": "An index and orientation guide for the prompts/ directory, explaining how to read the folder, describing what each prompt file is, and articulating the design-first philosophy behind the Huginn project's AI-assisted development approach.",
+      "tags": [
+        "documentation",
+        "entry-point",
+        "overview",
+        "ai-collaboration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:subplans/masterplan.md",
+      "type": "document",
+      "name": "masterplan.md",
+      "filePath": "subplans/masterplan.md",
+      "summary": "Top-level project masterplan for Huginn v1, describing the completed system in plain English, defining six sequential atomic subplans, the full folder structure, library stack (FastAPI, LangGraph, Anthropic SDK, Chroma, etc.), hard-coded v1 values, and the single architectural rule of independent testability.",
+      "tags": [
+        "documentation",
+        "architecture",
+        "entry-point",
+        "overview",
+        "planning"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:subplans/subplan_1.md",
+      "type": "document",
+      "name": "subplan_1.md",
+      "filePath": "subplans/subplan_1.md",
+      "summary": "Implementation specification for Subplan 1 (Exception Schema), providing the exact Python source for models/exception.py (ExceptionType, SettlementMismatchSubType, Severity enums and TradeException Pydantic model), all five JSON test fixtures, a smoke-test validation script, and gate criteria that must pass before Subplan 2 begins.",
+      "tags": [
+        "documentation",
+        "schema-definition",
+        "data-model",
+        "planning"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:subplans/subplan_2.md",
+      "type": "document",
+      "name": "subplan_2.md",
+      "filePath": "subplans/subplan_2.md",
+      "summary": "Implementation specification for Subplan 2 (Knowledge Base + Mimir), covering the three synthetic SOP documents for Arcturus Capital Management, the build_index.py preprocessing script, the Chroma-backed mimir/index.py loader, and the mimir/retriever.py public retrieval function with gate verification steps.",
+      "tags": [
+        "documentation",
+        "rag",
+        "vector-store",
+        "planning"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "document:subplans/subplan_3.md",
+      "type": "document",
+      "name": "subplan_3.md",
+      "filePath": "subplans/subplan_3.md",
+      "summary": "Implementation specification for Subplan 3 (Audit Logger), defining the dual-write logger/audit.py that appends structured events to JSONL, inserts rows into SQLite, and writes to the escalation queue JSONL, including expected event dict schema and gate verification script.",
+      "tags": [
+        "documentation",
+        "audit-logging",
+        "database",
+        "planning"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:subplans/subplan_4.md",
+      "type": "document",
+      "name": "subplan_4.md",
+      "filePath": "subplans/subplan_4.md",
+      "summary": "Implementation specification for Subplan 4 (LangGraph Agent), providing the full TypedDict agent state definition, all LangGraph node implementations (classify, retrieve, reason, decide, log, mandatory_escalate, invalid_exit), graph wiring with conditional edges for the three execution paths, and gate verification covering all state machine paths.",
+      "tags": [
+        "documentation",
+        "agent",
+        "state-machine",
+        "planning"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "document:subplans/subplan_5.md",
+      "type": "document",
+      "name": "subplan_5.md",
+      "filePath": "subplans/subplan_5.md",
+      "summary": "Implementation specification for Subplan 5 (FastAPI Layer), defining the three HTTP endpoints (POST /exceptions, GET /exceptions/{job_id}, GET /escalations), in-memory result store, uvicorn server startup, and manual curl gate verification tests covering all three agent execution paths.",
+      "tags": [
+        "documentation",
+        "api-handler",
+        "http-api",
+        "planning"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:subplans/subplan_6.md",
+      "type": "document",
+      "name": "subplan_6.md",
+      "filePath": "subplans/subplan_6.md",
+      "summary": "Implementation specification for Subplan 6 (Integration Tests), providing the complete pytest source for tests/test_mimir.py, tests/test_agent.py, and tests/test_api.py, covering Mimir retrieval correctness, all three agent state machine paths, full API endpoint tests, and audit log and SQLite state verification.",
+      "tags": [
+        "documentation",
+        "test",
+        "integration-test",
+        "planning"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "config:tests/fixtures/fixture_invalid_type.json",
+      "type": "config",
+      "name": "fixture_invalid_type.json",
+      "filePath": "tests/fixtures/fixture_invalid_type.json",
+      "summary": "Test fixture representing a trade exception with an unrecognized type ('corporate_action_failure'), used to exercise the invalid-type early-exit path in the LangGraph state machine.",
+      "tags": [
+        "test",
+        "data",
+        "fixture",
+        "invalid-type"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "config:tests/fixtures/fixture_mandatory_escalation.json",
+      "type": "config",
+      "name": "fixture_mandatory_escalation.json",
+      "filePath": "tests/fixtures/fixture_mandatory_escalation.json",
+      "summary": "Test fixture representing a high-severity settlement_mismatch/price_mismatch exception with a sanctions-review description, used to trigger the mandatory escalation fast-exit path.",
+      "tags": [
+        "test",
+        "data",
+        "fixture",
+        "escalation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "config:tests/fixtures/fixture_price_mismatch.json",
+      "type": "config",
+      "name": "fixture_price_mismatch.json",
+      "filePath": "tests/fixtures/fixture_price_mismatch.json",
+      "summary": "Test fixture for a standard settlement_mismatch/price_mismatch exception (bond CUSIP price discrepancy, high severity), used to exercise the full classify-retrieve-reason-decide-log path.",
+      "tags": [
+        "test",
+        "data",
+        "fixture",
+        "settlement-mismatch"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "config:tests/fixtures/fixture_quantity_mismatch.json",
+      "type": "config",
+      "name": "fixture_quantity_mismatch.json",
+      "filePath": "tests/fixtures/fixture_quantity_mismatch.json",
+      "summary": "Test fixture for a settlement_mismatch/quantity_mismatch exception (equity share-count discrepancy, medium severity), used to exercise the standard triage path with a quantity sub-type.",
+      "tags": [
+        "test",
+        "data",
+        "fixture",
+        "settlement-mismatch"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "config:tests/fixtures/fixture_wrong_settlement_date.json",
+      "type": "config",
+      "name": "fixture_wrong_settlement_date.json",
+      "filePath": "tests/fixtures/fixture_wrong_settlement_date.json",
+      "summary": "Test fixture for a settlement_mismatch/wrong_settlement_date exception (T+1 vs T+2 date disagreement, low severity), used to exercise the standard triage path with a date sub-type.",
+      "tags": [
+        "test",
+        "data",
+        "fixture",
+        "settlement-mismatch"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:walkthrough/agent_graph.md",
+      "type": "document",
+      "name": "agent_graph.md",
+      "filePath": "walkthrough/agent_graph.md",
+      "summary": "Walkthrough document for agent/graph.py, explaining how it assembles the LangGraph state machine with three execution paths (invalid-type exit, mandatory escalation fast-exit, and standard classify→retrieve→reason→decide→log), and noting design decisions around conditional routing and V2 extension points.",
+      "tags": [
+        "documentation",
+        "agent",
+        "state-machine",
+        "langgraph"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:walkthrough/agent_nodes.md",
+      "type": "document",
+      "name": "agent_nodes.md",
+      "filePath": "walkthrough/agent_nodes.md",
+      "summary": "Walkthrough document for agent/nodes.py, detailing all six graph node functions (classify, retrieve_node, reason, decide, escalate_fast_exit, log_result) with per-node purpose, design rationale, and V2 enhancement opportunities.",
+      "tags": [
+        "documentation",
+        "agent",
+        "nodes",
+        "langgraph"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:walkthrough/agent_state.md",
+      "type": "document",
+      "name": "agent_state.md",
+      "filePath": "walkthrough/agent_state.md",
+      "summary": "Walkthrough document for agent/state.py, explaining the TypedDict-based AgentState schema that carries triage data through the LangGraph state machine, covering field definitions, relationships to other modules, and V2 extension considerations.",
+      "tags": [
+        "documentation",
+        "agent",
+        "data-model",
+        "state-machine"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:walkthrough/api_main.md",
+      "type": "document",
+      "name": "api_main.md",
+      "filePath": "walkthrough/api_main.md",
+      "summary": "Walkthrough document for api/main.py, covering the FastAPI application that exposes the HTTP interface for exception triage, including endpoint design decisions, dependency relationships to the agent graph and models, and planned V2 improvements.",
+      "tags": [
+        "documentation",
+        "api",
+        "fastapi",
+        "http-interface"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:walkthrough/logger_audit.md",
+      "type": "document",
+      "name": "logger_audit.md",
+      "filePath": "walkthrough/logger_audit.md",
+      "summary": "Walkthrough document for logger/audit.py, describing the dual-write audit logger that persists triage decisions to both JSONL files and SQLite, with rationale for the dual-write design and V2 considerations for structured querying.",
+      "tags": [
+        "documentation",
+        "logging",
+        "audit",
+        "database"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:walkthrough/mimir_index.md",
+      "type": "document",
+      "name": "mimir_index.md",
+      "filePath": "walkthrough/mimir_index.md",
+      "summary": "Walkthrough document for mimir/index.py, explaining the Chroma vector store index layer that ingests and stores embeddings for RAG-based policy retrieval, including design decisions around sentence-transformers and V2 re-indexing hooks.",
+      "tags": [
+        "documentation",
+        "vector-store",
+        "rag",
+        "embeddings"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:walkthrough/mimir_retriever.md",
+      "type": "document",
+      "name": "mimir_retriever.md",
+      "filePath": "walkthrough/mimir_retriever.md",
+      "summary": "Walkthrough document for mimir/retriever.py, covering the retrieval layer that queries the Chroma vector store to surface relevant policy documents for exception reasoning, with design rationale and V2 extensibility notes.",
+      "tags": [
+        "documentation",
+        "rag",
+        "retrieval",
+        "vector-store"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:walkthrough/models_exception.md",
+      "type": "document",
+      "name": "models_exception.md",
+      "filePath": "walkthrough/models_exception.md",
+      "summary": "Walkthrough document for models/exception.py, describing the Pydantic data models that define the trade exception input schema and validation rules used throughout the triage pipeline, including V2 extension fields.",
+      "tags": [
+        "documentation",
+        "data-model",
+        "validation",
+        "pydantic"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:walkthrough/scripts_build_index.md",
+      "type": "document",
+      "name": "scripts_build_index.md",
+      "filePath": "walkthrough/scripts_build_index.md",
+      "summary": "Walkthrough document for scripts/build_index.py, explaining the one-shot CLI script that populates the Chroma vector store from policy document sources, covering design decisions for offline indexing and V2 incremental update plans.",
+      "tags": [
+        "documentation",
+        "scripts",
+        "vector-store",
+        "data-pipeline"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:agent/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "agent/__init__.py",
+      "summary": "Empty Python package marker that designates the agent directory as an importable package.",
+      "tags": [
+        "entry-point",
+        "barrel",
+        "package-init"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:api/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "api/__init__.py",
+      "summary": "Empty Python package marker that designates the api directory as an importable package.",
+      "tags": [
+        "entry-point",
+        "barrel",
+        "package-init"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:conftest.py",
+      "type": "file",
+      "name": "conftest.py",
+      "filePath": "conftest.py",
+      "summary": "Pytest configuration file that inserts the project root onto sys.path so all pytest runs can resolve project imports without installation.",
+      "tags": [
+        "test",
+        "configuration",
+        "entry-point"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:logger/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "logger/__init__.py",
+      "summary": "Empty Python package marker that designates the logger directory as an importable package.",
+      "tags": [
+        "entry-point",
+        "barrel",
+        "package-init"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:logger/audit.py",
+      "type": "file",
+      "name": "audit.py",
+      "filePath": "logger/audit.py",
+      "summary": "Dual-write audit logger that routes structured trade-exception events to both an append-only JSONL file and a SQLite database, with automatic fan-out to a separate escalation queue when outcome is 'escalate'.",
+      "tags": [
+        "service",
+        "audit",
+        "logging",
+        "data-model",
+        "tested"
+      ],
+      "complexity": "moderate",
+      "languageNotes": "Uses a module-level boolean flag (_db_initialized) for lazy one-time SQLite schema creation; INSERT OR REPLACE semantics deduplicate on job_id primary key."
+    },
+    {
+      "id": "function:logger/audit.py:_init_db",
+      "type": "function",
+      "name": "_init_db",
+      "filePath": "logger/audit.py",
+      "lineRange": [
+        20,
+        46
+      ],
+      "summary": "Lazily creates the SQLite audit_log table with all trade-exception fields on first call, guarded by a module-level flag to avoid redundant schema setup.",
+      "tags": [
+        "database",
+        "initialization",
+        "sqlite"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:logger/audit.py:_write_sqlite",
+      "type": "function",
+      "name": "_write_sqlite",
+      "filePath": "logger/audit.py",
+      "lineRange": [
+        55,
+        86
+      ],
+      "summary": "Persists a structured audit event to the SQLite database using INSERT OR REPLACE, mapping all trade-exception fields and serializing the full event as JSON for archival.",
+      "tags": [
+        "database",
+        "serialization",
+        "sqlite"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:logger/audit.py:log",
+      "type": "function",
+      "name": "log",
+      "filePath": "logger/audit.py",
+      "lineRange": [
+        89,
+        105
+      ],
+      "summary": "Public entry point for audit logging that writes every event to both JSONL and SQLite, and conditionally appends to the escalation queue when outcome equals 'escalate'.",
+      "tags": [
+        "service",
+        "logging",
+        "event-handler"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:mimir/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "mimir/__init__.py",
+      "summary": "Empty Python package marker that designates the mimir directory as an importable package.",
+      "tags": [
+        "entry-point",
+        "barrel",
+        "package-init"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:models/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "models/__init__.py",
+      "summary": "Empty Python package marker that designates the models directory as an importable package.",
+      "tags": [
+        "entry-point",
+        "barrel",
+        "package-init"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:scripts/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "scripts/__init__.py",
+      "summary": "Empty Python package marker that designates the scripts directory as an importable package.",
+      "tags": [
+        "entry-point",
+        "barrel",
+        "package-init"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:scripts/build_index.py",
+      "type": "file",
+      "name": "build_index.py",
+      "filePath": "scripts/build_index.py",
+      "summary": "One-shot script that ingests raw SOP text files from knowledge_base/raw, splits them into chunks with LangChain, embeds them via HuggingFace sentence-transformers, and persists the resulting Chroma vector store for RAG retrieval.",
+      "tags": [
+        "script",
+        "data-pipeline",
+        "entry-point"
+      ],
+      "complexity": "moderate",
+      "languageNotes": "Uses langchain_chroma and langchain_huggingface to build the Mimir RAG index; first run downloads ~420MB of model weights. A DOCUMENT_METADATA dict maps filename stems to sub_type metadata injected into every chunk."
+    },
+    {
+      "id": "function:scripts/build_index.py:build_index",
+      "type": "function",
+      "name": "build_index",
+      "filePath": "scripts/build_index.py",
+      "lineRange": [
+        35,
+        77
+      ],
+      "summary": "Loads all .txt SOP documents from the raw knowledge base directory, splits them into overlapping chunks, attaches sub_type metadata, generates sentence-transformer embeddings, and writes the Chroma vector store to disk.",
+      "tags": [
+        "data-pipeline",
+        "utility",
+        "vectorstore"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:tests/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "tests/__init__.py",
+      "summary": "Empty Python package marker that designates the tests directory as an importable package.",
+      "tags": [
+        "test",
+        "barrel",
+        "package-init"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:tests/test_logger_smoke.py",
+      "type": "file",
+      "name": "test_logger_smoke.py",
+      "filePath": "tests/test_logger_smoke.py",
+      "summary": "Procedural smoke test for the audit logger that exercises both auto-resolve and escalate event paths, then validates that JSONL files, escalation queue, and SQLite rows contain the expected records.",
+      "tags": [
+        "test",
+        "smoke-test",
+        "validation"
+      ],
+      "complexity": "moderate",
+      "languageNotes": "Written as a standalone script rather than pytest functions; uses top-level assertions and print-based pass/fail reporting rather than pytest assertions."
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:agent/graph.py",
+      "target": "file:agent/nodes.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:agent/graph.py",
+      "target": "file:agent/state.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:agent/nodes.py",
+      "target": "file:logger/audit.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:agent/nodes.py",
+      "target": "file:mimir/retriever.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/test_agent.py",
+      "target": "file:agent/graph.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/test_agent.py",
+      "target": "file:agent/nodes.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/test_agent_smoke.py",
+      "target": "file:agent/graph.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:agent/graph.py",
+      "target": "function:agent/graph.py:should_fast_exit",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:agent/graph.py",
+      "target": "function:agent/graph.py:should_escalate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:agent/graph.py",
+      "target": "function:agent/graph.py:build_graph",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:agent/graph.py",
+      "target": "function:agent/graph.py:should_fast_exit",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:agent/graph.py",
+      "target": "function:agent/graph.py:should_escalate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:agent/graph.py",
+      "target": "function:agent/graph.py:build_graph",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:agent/nodes.py",
+      "target": "function:agent/nodes.py:classify",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:agent/nodes.py",
+      "target": "function:agent/nodes.py:retrieve_node",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:agent/nodes.py",
+      "target": "function:agent/nodes.py:reason",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:agent/nodes.py",
+      "target": "function:agent/nodes.py:decide",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:agent/nodes.py",
+      "target": "function:agent/nodes.py:escalate_fast_exit",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:agent/nodes.py",
+      "target": "function:agent/nodes.py:log_result",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:agent/nodes.py",
+      "target": "function:agent/nodes.py:classify",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:agent/nodes.py",
+      "target": "function:agent/nodes.py:retrieve_node",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:agent/nodes.py",
+      "target": "function:agent/nodes.py:reason",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:agent/nodes.py",
+      "target": "function:agent/nodes.py:decide",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:agent/nodes.py",
+      "target": "function:agent/nodes.py:escalate_fast_exit",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:agent/nodes.py",
+      "target": "function:agent/nodes.py:log_result",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:agent/state.py",
+      "target": "class:agent/state.py:AgentState",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:agent/state.py",
+      "target": "class:agent/state.py:AgentState",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:tests/test_agent.py",
+      "target": "class:tests/test_agent.py:TestClassifyNode",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:tests/test_agent.py",
+      "target": "class:tests/test_agent.py:TestDecideNode",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:tests/test_agent.py",
+      "target": "class:tests/test_agent.py:TestEscalateFastExitNode",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:tests/test_agent.py",
+      "target": "class:tests/test_agent.py:TestAgentGraph",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:tests/test_agent.py",
+      "target": "function:tests/test_agent.py:make_initial_state",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "function:agent/nodes.py:retrieve_node",
+      "target": "file:mimir/retriever.py",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:agent/nodes.py:log_result",
+      "target": "file:logger/audit.py",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:agent/graph.py",
+      "target": "file:tests/test_agent.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:agent/graph.py",
+      "target": "file:tests/test_agent_smoke.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:api/main.py",
+      "target": "file:models/exception.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:api/main.py",
+      "target": "file:agent/graph.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:api/main.py",
+      "target": "function:api/main.py:submit_exception",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:api/main.py",
+      "target": "function:api/main.py:get_exception_result",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:api/main.py",
+      "target": "function:api/main.py:get_escalations",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:api/main.py",
+      "target": "function:api/main.py:submit_exception",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:api/main.py",
+      "target": "function:api/main.py:get_exception_result",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:api/main.py",
+      "target": "function:api/main.py:get_escalations",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:api/main.py:submit_exception",
+      "target": "file:agent/graph.py",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:models/exception.py",
+      "target": "class:models/exception.py:TradeException",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:models/exception.py",
+      "target": "class:models/exception.py:TradeException",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:tests/test_api.py",
+      "target": "file:api/main.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/test_api.py",
+      "target": "file:models/exception.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/test_api.py",
+      "target": "class:tests/test_api.py:TestAPIEndpoints",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:tests/test_api.py",
+      "target": "class:tests/test_api.py:TestAPIEndpoints",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:api/main.py",
+      "target": "file:tests/test_api.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:tests/test_schema_smoke.py",
+      "target": "file:models/exception.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:models/exception.py",
+      "target": "file:tests/test_schema_smoke.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:mimir/index.py",
+      "target": "function:mimir/index.py:get_vectorstore",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:mimir/index.py",
+      "target": "function:mimir/index.py:get_vectorstore",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:mimir/retriever.py",
+      "target": "file:mimir/index.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:mimir/retriever.py",
+      "target": "function:mimir/retriever.py:retrieve",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:mimir/retriever.py",
+      "target": "function:mimir/retriever.py:retrieve",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:mimir/retriever.py:retrieve",
+      "target": "function:mimir/index.py:get_vectorstore",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:tests/test_mimir.py",
+      "target": "file:mimir/retriever.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/test_mimir.py",
+      "target": "class:tests/test_mimir.py:TestMimirRetrieve",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:mimir/retriever.py",
+      "target": "file:tests/test_mimir.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:tests/test_mimir_smoke.py",
+      "target": "file:mimir/retriever.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:mimir/retriever.py",
+      "target": "file:tests/test_mimir_smoke.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:README.md",
+      "target": "document:DESIGN.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:README.md",
+      "target": "document:INTERFACE_CONTRACT.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:README.md",
+      "target": "document:DESIGN_DECISIONS.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:DESIGN.md",
+      "target": "document:DESIGN_DECISIONS.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:INTERFACE_CONTRACT.md",
+      "target": "document:DESIGN_DECISIONS.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/design_decisions.md",
+      "target": "document:docs/architecture.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/interface_contract.md",
+      "target": "document:docs/design_decisions.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/glossary.md",
+      "target": "document:docs/architecture.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/glossary.md",
+      "target": "document:docs/interface_contract.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/setup_notes.md",
+      "target": "document:docs/architecture.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/architecture.md",
+      "target": "file:models/exception.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/architecture.md",
+      "target": "file:api/main.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/architecture.md",
+      "target": "file:agent/graph.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/architecture.md",
+      "target": "file:agent/nodes.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/architecture.md",
+      "target": "file:agent/state.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/architecture.md",
+      "target": "file:mimir/retriever.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/architecture.md",
+      "target": "file:mimir/index.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/architecture.md",
+      "target": "file:logger/audit.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/architecture.md",
+      "target": "file:scripts/build_index.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/interface_contract.md",
+      "target": "file:models/exception.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/interface_contract.md",
+      "target": "file:api/main.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/interface_contract.md",
+      "target": "file:agent/state.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/interface_contract.md",
+      "target": "file:agent/nodes.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/interface_contract.md",
+      "target": "file:mimir/retriever.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/interface_contract.md",
+      "target": "file:logger/audit.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/glossary.md",
+      "target": "file:models/exception.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/glossary.md",
+      "target": "file:mimir/retriever.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/glossary.md",
+      "target": "file:agent/nodes.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/glossary.md",
+      "target": "file:agent/graph.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/design_decisions.md",
+      "target": "file:models/exception.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/design_decisions.md",
+      "target": "file:mimir/retriever.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/design_decisions.md",
+      "target": "file:logger/audit.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/design_decisions.md",
+      "target": "file:api/main.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:prompts/README.md",
+      "target": "document:prompts/01_design_methodology.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:prompts/README.md",
+      "target": "document:prompts/02_readme_generation.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:prompts/README.md",
+      "target": "document:prompts/03_generate_walkthrough.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:prompts/README.md",
+      "target": "document:prompts/04_rewrite_glossary.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:prompts/02_readme_generation.md",
+      "target": "document:prompts/01_design_methodology.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:subplans/masterplan.md",
+      "target": "document:subplans/subplan_1.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:subplans/masterplan.md",
+      "target": "document:subplans/subplan_2.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:subplans/masterplan.md",
+      "target": "document:subplans/subplan_3.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:subplans/masterplan.md",
+      "target": "document:subplans/subplan_4.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:subplans/masterplan.md",
+      "target": "document:subplans/subplan_5.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:subplans/masterplan.md",
+      "target": "document:subplans/subplan_6.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:subplans/subplan_1.md",
+      "target": "document:subplans/masterplan.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:subplans/subplan_2.md",
+      "target": "document:subplans/subplan_1.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:subplans/subplan_3.md",
+      "target": "document:subplans/subplan_2.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:subplans/subplan_4.md",
+      "target": "document:subplans/subplan_3.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:subplans/subplan_5.md",
+      "target": "document:subplans/subplan_4.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:subplans/subplan_6.md",
+      "target": "document:subplans/subplan_5.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:walkthrough/agent_graph.md",
+      "target": "file:agent/graph.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:walkthrough/agent_nodes.md",
+      "target": "file:agent/nodes.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:walkthrough/agent_state.md",
+      "target": "file:agent/state.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:walkthrough/api_main.md",
+      "target": "file:api/main.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:walkthrough/logger_audit.md",
+      "target": "file:logger/audit.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:walkthrough/mimir_index.md",
+      "target": "file:mimir/index.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:walkthrough/mimir_retriever.md",
+      "target": "file:mimir/retriever.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:walkthrough/models_exception.md",
+      "target": "file:models/exception.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:walkthrough/scripts_build_index.md",
+      "target": "file:scripts/build_index.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:logger/audit.py",
+      "target": "function:logger/audit.py:_init_db",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:logger/audit.py",
+      "target": "function:logger/audit.py:_write_sqlite",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:logger/audit.py",
+      "target": "function:logger/audit.py:log",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:logger/audit.py",
+      "target": "function:logger/audit.py:_init_db",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:logger/audit.py",
+      "target": "function:logger/audit.py:_write_sqlite",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:logger/audit.py",
+      "target": "function:logger/audit.py:log",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:scripts/build_index.py",
+      "target": "function:scripts/build_index.py:build_index",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:scripts/build_index.py",
+      "target": "function:scripts/build_index.py:build_index",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:tests/test_logger_smoke.py",
+      "target": "file:logger/audit.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:logger/audit.py",
+      "target": "file:tests/test_logger_smoke.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:tests/test_logger_smoke.py",
+      "target": "function:logger/audit.py:log",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:agent/nodes.py",
+      "target": "function:logger/audit.py:log",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    }
+  ],
+  "layers": [
+    {
+      "id": "layer:api",
+      "name": "API Layer",
+      "description": "FastAPI application exposing the three trade exception triage endpoints (POST /exceptions, GET /exceptions/{job_id}, GET /escalations) that invoke the LangGraph agent and persist results to SQLite, JSONL, and an in-memory escalation queue.",
+      "nodeIds": [
+        "file:api/main.py",
+        "file:api/__init__.py"
+      ]
+    },
+    {
+      "id": "layer:agent",
+      "name": "Agent Layer",
+      "description": "LangGraph three-path state machine that classifies trade exceptions, retrieves SOPs from the Chroma vector store, calls Claude for confidence-scored reasoning, and routes to resolution, escalation, or fast-exit depending on exception type and confidence.",
+      "nodeIds": [
+        "file:agent/graph.py",
+        "file:agent/nodes.py",
+        "file:agent/state.py",
+        "file:agent/__init__.py"
+      ]
+    },
+    {
+      "id": "layer:service",
+      "name": "Service Layer",
+      "description": "Supporting runtime services consumed by the agent: the Mimir RAG retrieval module backed by a Chroma vector store, the dual-write audit logger persisting structured records to JSONL and SQLite, and the one-shot build script that indexes SOP documents into Chroma.",
+      "nodeIds": [
+        "file:mimir/index.py",
+        "file:mimir/retriever.py",
+        "file:mimir/__init__.py",
+        "file:logger/audit.py",
+        "file:logger/__init__.py",
+        "file:scripts/build_index.py",
+        "file:scripts/__init__.py"
+      ]
+    },
+    {
+      "id": "layer:types",
+      "name": "Domain Types",
+      "description": "Core Pydantic domain model for trade exceptions, including the TradeException schema, ExceptionType and SettlementMismatchSubType enums, and Severity definitions shared across the API and agent layers.",
+      "nodeIds": [
+        "file:models/exception.py",
+        "file:models/__init__.py"
+      ]
+    },
+    {
+      "id": "layer:test",
+      "name": "Test Suite",
+      "description": "Full test coverage across unit, integration, and smoke-test levels for every component — the LangGraph agent nodes, FastAPI endpoints, Mimir retriever, audit logger, and Pydantic schema validation — plus the pytest conftest and JSON fixtures that supply test payloads.",
+      "nodeIds": [
+        "file:tests/test_agent.py",
+        "file:tests/test_agent_smoke.py",
+        "file:tests/test_api.py",
+        "file:tests/test_schema_smoke.py",
+        "file:tests/test_mimir.py",
+        "file:tests/test_mimir_smoke.py",
+        "file:tests/test_logger_smoke.py",
+        "file:tests/__init__.py",
+        "file:conftest.py",
+        "config:tests/fixtures/fixture_invalid_type.json",
+        "config:tests/fixtures/fixture_mandatory_escalation.json",
+        "config:tests/fixtures/fixture_price_mismatch.json",
+        "config:tests/fixtures/fixture_quantity_mismatch.json",
+        "config:tests/fixtures/fixture_wrong_settlement_date.json"
+      ]
+    },
+    {
+      "id": "layer:documentation",
+      "name": "Documentation",
+      "description": "Comprehensive design-first documentation suite covering architecture, interface contracts, 28 locked design decisions, a domain glossary, developer setup notes, raw SOP knowledge-base source files, per-module code walkthroughs, AI-collaboration prompts, and the phased implementation subplans that drove Huginn's build.",
+      "nodeIds": [
+        "document:README.md",
+        "document:DESIGN.md",
+        "document:DESIGN_DECISIONS.md",
+        "document:INTERFACE_CONTRACT.md",
+        "document:docs/architecture.md",
+        "document:docs/design_decisions.md",
+        "document:docs/glossary.md",
+        "document:docs/interface_contract.md",
+        "document:docs/setup_notes.md",
+        "document:knowledge_base/raw/sop_price_mismatch.txt",
+        "document:knowledge_base/raw/sop_quantity_mismatch.txt",
+        "document:knowledge_base/raw/sop_wrong_settlement_date.txt",
+        "document:prompts/01_design_methodology.md",
+        "document:prompts/02_readme_generation.md",
+        "document:prompts/03_generate_walkthrough.md",
+        "document:prompts/04_rewrite_glossary.md",
+        "document:prompts/README.md",
+        "document:subplans/masterplan.md",
+        "document:subplans/subplan_1.md",
+        "document:subplans/subplan_2.md",
+        "document:subplans/subplan_3.md",
+        "document:subplans/subplan_4.md",
+        "document:subplans/subplan_5.md",
+        "document:subplans/subplan_6.md",
+        "document:walkthrough/agent_graph.md",
+        "document:walkthrough/agent_nodes.md",
+        "document:walkthrough/agent_state.md",
+        "document:walkthrough/api_main.md",
+        "document:walkthrough/logger_audit.md",
+        "document:walkthrough/mimir_index.md",
+        "document:walkthrough/mimir_retriever.md",
+        "document:walkthrough/models_exception.md",
+        "document:walkthrough/scripts_build_index.md"
+      ]
+    }
+  ],
+  "tour": [
+    {
+      "order": 1,
+      "title": "Project Overview",
+      "description": "README.md establishes the project's defining idea: design comes first, code is secondary. Huginn is a financial trade exception processing agent — it classifies discrepancies between internal and counterparty records, retrieves relevant SOPs, reasons over them using the Claude API, and either auto-resolves or escalates to a human reviewer. Reading this first anchors every subsequent code step in its business purpose.",
+      "nodeIds": [
+        "document:README.md"
+      ],
+      "languageLesson": "This project was built design-first: the architecture document, interface contract, and all 28 design decisions were locked before any code was written. The README is the primary signal of that methodology, not just a setup guide."
+    },
+    {
+      "order": 2,
+      "title": "Architecture & Design Decisions",
+      "description": "DESIGN.md and DESIGN_DECISIONS.md together form the specification layer that governed every implementation choice. DESIGN.md covers the five components and the three-path state machine topology. DESIGN_DECISIONS.md registers all 28 locked decisions with their reasoning and rejected alternatives — reading it reveals why the code looks the way it does before you see a single line of it.",
+      "nodeIds": [
+        "document:DESIGN.md",
+        "document:DESIGN_DECISIONS.md"
+      ]
+    },
+    {
+      "order": 3,
+      "title": "Interface Contract",
+      "description": "INTERFACE_CONTRACT.md is the pre-implementation specification that defined every component's inputs, outputs, and data types before coding began. It is the bridge between the architecture narrative (Step 2) and the actual code structures you will encounter starting in Step 4. When you see a Pydantic model or a function signature, this document is why it has exactly those fields.",
+      "nodeIds": [
+        "document:INTERFACE_CONTRACT.md"
+      ]
+    },
+    {
+      "order": 4,
+      "title": "API Entry Point",
+      "description": "api/main.py is the runtime entry point for the entire system: a FastAPI application with three endpoints — POST /exceptions to submit a new trade exception, GET /exceptions/{job_id} to retrieve a triage result, and GET /escalations to list exceptions that require human review. This file is where the domain model (exception.py) and the agent graph (graph.py) are assembled into an HTTP-accessible service, and where every end-to-end execution begins.",
+      "nodeIds": [
+        "file:api/main.py"
+      ],
+      "languageLesson": "FastAPI uses Python type annotations as the source of truth for request and response validation. Declaring a Pydantic model as a route parameter means FastAPI automatically validates incoming JSON, generates OpenAPI docs, and returns a 422 with structured errors on bad input — without any manual validation code."
+    },
+    {
+      "order": 5,
+      "title": "Domain Model",
+      "description": "models/exception.py defines the TradeException Pydantic model and its three supporting enums: ExceptionType, SettlementMismatchSubType, and Severity. These types are the vocabulary shared across every layer — the API deserializes requests into TradeException objects, the agent's state machine carries them, and the audit logger persists them. The model enforces field-level validation at the boundary, so invalid exceptions are rejected before they ever reach the agent.",
+      "nodeIds": [
+        "file:models/exception.py"
+      ],
+      "languageLesson": "Pydantic v2 models use Python type annotations with validators for runtime enforcement. Enums as field types mean only declared values are accepted — Python will raise a ValidationError at instantiation time if the caller passes an unknown exception type, preventing garbage-in from propagating into the pipeline."
+    },
+    {
+      "order": 6,
+      "title": "Agent State",
+      "description": "agent/state.py defines AgentState, the TypedDict that every node in the LangGraph pipeline reads from and writes to. It holds the original exception payload, classification results, retrieved SOP chunks, the raw LLM response, confidence score, final decision, and audit fields. Understanding AgentState is the prerequisite for understanding any node — it is the shared contract that makes the state machine's nodes loosely coupled.",
+      "nodeIds": [
+        "file:agent/state.py"
+      ],
+      "languageLesson": "LangGraph uses a TypedDict (not a dataclass or Pydantic model) for agent state because TypedDicts support incremental updates: each node returns only the keys it modifies, and LangGraph merges the partial update into the existing state. This enables fan-out parallelism and makes each node independently testable."
+    },
+    {
+      "order": 7,
+      "title": "Three-Path State Machine",
+      "description": "agent/graph.py wires together the LangGraph state machine that is the core of Huginn's logic. It compiles three distinct execution paths: the invalid-type fast-exit (unknown exception type → immediate rejection), the mandatory escalation fast-exit (sanctions or AML keywords → immediate escalation without LLM reasoning), and the standard path (classify → retrieve SOPs → LLM reasoning → confidence-based decide → log). The graph structure itself encodes the business rules about when AI reasoning is appropriate and when a deterministic rule must fire instead.",
+      "nodeIds": [
+        "file:agent/graph.py",
+        "document:walkthrough/agent_graph.md"
+      ],
+      "languageLesson": "LangGraph's conditional_edge() takes a router function that inspects the current state and returns the name of the next node to visit. This is how all three paths diverge from a single classification node — the router examines the exception type and content, and LangGraph dispatches to the correct downstream node without any explicit if/else in the node implementations themselves."
+    },
+    {
+      "order": 8,
+      "title": "Node Implementations",
+      "description": "agent/nodes.py contains every node function that the graph from Step 7 calls: classify() inspects the exception type and keywords, retrieve_sops() fetches relevant SOP chunks from the Chroma vector store, llm_reason() constructs a prompt and calls the Claude API, decide() thresholds the confidence score to produce a resolution or escalation decision, escalate_fast_exit() handles mandatory escalation, and log_audit() writes the full-fidelity audit record. Each function receives AgentState and returns a partial update — the side-effect-free unit of work in the pipeline.",
+      "nodeIds": [
+        "file:agent/nodes.py",
+        "document:walkthrough/agent_nodes.md"
+      ],
+      "languageLesson": "Each LangGraph node is a plain Python function: it accepts the current state dict and returns a dict of updated keys. This design means nodes are unit-testable in complete isolation — you pass in a hand-crafted state dict and assert on the returned update, with no graph infrastructure required."
+    },
+    {
+      "order": 9,
+      "title": "SOP Knowledge Base",
+      "description": "The three SOP text files in knowledge_base/raw/ are the domain knowledge that powers the RAG step. SOP-SM-001 covers price mismatch resolution, SOP-SM-002 covers quantity mismatch, and SOP-SM-003 covers wrong settlement date. These plain-text documents are the content that Mimir (Steps 10-11) chunks, embeds, and stores in the Chroma vector store — and what the llm_reason() node (Step 8) receives as context when constructing its prompt to Claude.",
+      "nodeIds": [
+        "document:knowledge_base/raw/sop_price_mismatch.txt",
+        "document:knowledge_base/raw/sop_quantity_mismatch.txt",
+        "document:knowledge_base/raw/sop_wrong_settlement_date.txt"
+      ]
+    },
+    {
+      "order": 10,
+      "title": "Mimir RAG Retrieval",
+      "description": "mimir/retriever.py exposes a single public function retrieve() that takes a query string and returns the top-k matching SOP document chunks from the Chroma vector store. mimir/index.py provides the lazy singleton accessor that initializes HuggingFace embeddings and the Chroma client on the first call, avoiding startup cost until retrieval is actually needed. Together these two files form the Mimir subsystem — the information retrieval layer that gives the LLM relevant procedural context before it reasons about a trade exception.",
+      "nodeIds": [
+        "file:mimir/retriever.py",
+        "file:mimir/index.py"
+      ],
+      "languageLesson": "The lazy singleton pattern (initialize on first call, cache the result) is common in Python services that hold expensive resources like embedding models. A module-level variable initialized to None, replaced on first access, ensures the HuggingFace model is loaded exactly once per process lifetime regardless of how many retrieve() calls are made."
+    },
+    {
+      "order": 11,
+      "title": "Index Build Script",
+      "description": "scripts/build_index.py is the one-shot offline step that must be run before the agent can retrieve SOPs: it reads the raw SOP text files from knowledge_base/raw/, chunks them, generates HuggingFace embeddings, and persists them into the Chroma vector store. It is not part of the runtime path — it is the setup step that populates the vector store that mimir/index.py will later serve. The separation of index-build from retrieval is a key design decision: the knowledge base is stable between runs, so re-indexing is not done on every request.",
+      "nodeIds": [
+        "file:scripts/build_index.py"
+      ]
+    },
+    {
+      "order": 12,
+      "title": "Audit Logger",
+      "description": "logger/audit.py is the dual-write audit trail that the log_audit() node (Step 8) calls at the end of every execution path. It writes a structured event to both a JSONL file and a SQLite database, and fans out to a separate escalation queue for any exception that was escalated. The full-fidelity record includes the original exception, the SOP chunks retrieved, the LLM raw response, the confidence score, and the reasoning trace — every artifact needed to reconstruct or audit any triage decision.",
+      "nodeIds": [
+        "file:logger/audit.py"
+      ],
+      "languageLesson": "Dual-write to JSONL and SQLite serves different access patterns: JSONL is append-only and trivially streamable for log aggregation pipelines, while SQLite supports structured queries (e.g., 'show me all escalated SETTLEMENT_MISMATCH exceptions from today'). Writing to both on every event is a design decision that avoids choosing one access pattern at the cost of the other."
+    },
+    {
+      "order": 13,
+      "title": "Three-Path Test Fixtures",
+      "description": "The three JSON fixtures in tests/fixtures/ are the concrete test inputs that exercise each execution path in the state machine: fixture_price_mismatch.json drives the standard classify-retrieve-reason-decide-log path, fixture_mandatory_escalation.json triggers the sanctions/AML fast-exit before any LLM call, and fixture_invalid_type.json triggers the immediate rejection for unrecognized exception types. These fixtures are the simplest possible demonstration of the three-path architecture — reading them side-by-side shows exactly which input fields determine which path is taken.",
+      "nodeIds": [
+        "config:tests/fixtures/fixture_price_mismatch.json",
+        "config:tests/fixtures/fixture_mandatory_escalation.json",
+        "config:tests/fixtures/fixture_invalid_type.json"
+      ]
+    },
+    {
+      "order": 14,
+      "title": "Test Suite",
+      "description": "The test suite covers every layer at multiple levels: test_agent.py provides unit tests for individual nodes (classify, decide, escalate_fast_exit) and end-to-end graph execution tests; test_api.py tests all three FastAPI endpoints via the test client; test_mimir.py and test_mimir_smoke.py validate the retriever against the real vector store; test_logger_smoke.py validates the audit logger; and test_agent_smoke.py and test_schema_smoke.py run full end-to-end passes against the real compiled graph and real fixtures. The separation of unit, integration, and smoke tests reflects the design-first discipline — each layer was specified independently and tested independently.",
+      "nodeIds": [
+        "file:tests/test_agent.py",
+        "file:tests/test_api.py",
+        "file:tests/test_mimir.py",
+        "file:tests/test_logger_smoke.py"
+      ]
+    },
+    {
+      "order": 15,
+      "title": "Architecture Reference",
+      "description": "docs/architecture.md is the comprehensive architecture reference that ties together all the components you have now seen in detail. It documents the same five-component system — API, agent, domain types, Mimir, and audit logger — with component-level diagrams and cross-references to the design decisions from Step 2. After walking through the code, reading this document completes the picture: you can now map every paragraph of the architecture doc directly to the file and function that implements it.",
+      "nodeIds": [
+        "document:docs/architecture.md",
+        "document:docs/glossary.md"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+# .understandignore — patterns for files/dirs to exclude from analysis
+# Syntax: same as .gitignore (globs, # comments, ! negation, trailing / for dirs)
+
+# Chroma vector index (binary/generated)
+knowledge_base/processed/
+
+# Runtime log files
+logs/
+
+# Captured test output text files
+test_output/
+
+# Python cache
+.pytest_cache/
+__pycache__/
+
+# Zone identifier files
+*:Zone.Identifier
+
+# understand-anything working directory
+.understand-anything/
