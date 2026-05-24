@@ -15,7 +15,7 @@ load_dotenv()
 # Hard-coded v1 values — see masterplan for change locations
 ESCALATION_THRESHOLD = 0.75
 MANDATORY_ESCALATION_KEYWORDS = ["sanctions", "AML", "regulatory hold"]
-LLM_MODEL = "claude-sonnet-4-20250514"
+LLM_MODEL = "claude-sonnet-4-6"
 
 
 # ---------------------------------------------------------------------------
