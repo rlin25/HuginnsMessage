@@ -33,7 +33,7 @@ The other party to a trade. In a stock purchase, the buyer and the seller are co
 One of the four factors in Huginn v2's regulatory reasoning scoring rubric. Measures whether all rules referenced within the retrieved chunks were also retrieved and considered. Regulatory documents cross-reference each other heavily — a retrieved chunk may say "the remedy is provided for by Rules 11810 and 11820" without those rules' content. Unresolved cross-references lower the confidence score because the complete regulatory picture is not available. Resolved by Mimir's two-pass retrieval.
 
 **eCFR (Electronic Code of Federal Regulations)**
-The official, continuously updated online publication of US federal regulations. Huginn's knowledge base uses the eCFR as the source for SEC Rules 15c6-1 and 15c6-2 — the rule text is current and authoritative. Available at `ecfr.gov`.
+The official, continuously updated online publication of US federal regulations. Huginn's knowledge base uses the eCFR as the source for SEC Rules 15c6-1 and 15c6-2 — the rule text is current and authoritative.
 
 **Escalation**
 The outcome when Huginn is not confident enough to handle a trade exception automatically, or when the exception contains a term that requires immediate human review regardless of confidence. Escalated exceptions are written to the escalation queue — the human reviewer's inbox.
@@ -57,7 +57,7 @@ The scope and definitions rule of FINRA's Uniform Practice Code. Establishes whi
 The General Provisions rule governing reclamations — a claim for the right to return or demand the return of a security that has been previously delivered. Included in Huginn's v2 knowledge base as a dependency of Rule 11820: the sell-out rule references the Uniform Reclamation Form defined in 11710, and an exception involving a disputed reclamation cannot be reasoned against 11820 without it.
 
 **FINRA Rule 11810**
-The Buy-In Procedures and Requirements rule. Governs the formal close-out procedure when a seller fails to deliver securities. Specifies the timing, notice requirements, and execution procedures for a buyer to purchase replacement securities and charge the cost to the defaulting seller. One of the most structurally complex rules in Huginn's knowledge base — seven pages with fifteen lettered subsections, including sample buy-in forms that produce duplicate section markers handled by sequential suffixing in `build_index.py`.
+The Buy-In Procedures and Requirements rule. Governs the formal close-out procedure when a seller fails to deliver securities. Specifies the timing, notice requirements, and execution procedures for a buyer to purchase replacement securities and charge the cost to the defaulting seller. One of the most structurally complex rules in Huginn's knowledge base — seven pages with multiple lettered subsections, including sample buy-in forms that produce duplicate section markers handled by sequential suffixing in `build_index.py`.
 
 **FINRA Rule 11820**
 The Selling-Out rule. The mirror image of Rule 11810 — governs the formal close-out procedure when a buyer fails to accept delivery. The seller may sell the securities in the best available market and charge any losses to the defaulting buyer. References Rule 11710 for the Uniform Reclamation Form requirements.
@@ -108,10 +108,10 @@ The SEC rule governing the standard settlement cycle for most broker-dealer secu
 The SEC rule requiring broker-dealers to complete trade allocations, confirmations, and affirmations by the end of trade date to support T+1 settlement. Either written agreements or written policies and procedures must be in place. Included in Huginn's knowledge base as a companion to Rule 15c6-1 — together they define the full regulatory framework for T+1 settlement obligations.
 
 **Section-Aware Chunking**
-Huginn v2's document chunking strategy. Rather than splitting regulatory documents at arbitrary character boundaries (v1's approach), v2 splits on structural boundaries defined by the documents' own authors — lettered subsections `(a)`, `(b)`, `(c)` etc. Each subsection becomes one chunk, with the parent rule identifier and section header prepended as context. Implemented in `scripts/build_index.py` using a regex parser with a minimum chunk length threshold.
+Huginn v2's document chunking strategy. Rather than splitting regulatory documents at arbitrary character boundaries (v1's approach), v2 splits on structural boundaries defined by the documents' own authors — lettered subsections `(a)`, `(b)`, `(c)` etc. Each subsection becomes one chunk, with the parent rule identifier and section header prepended as context. Implemented in `scripts/build_index.py` using a regex parser with a false-split filter and a 200-character minimum length threshold.
 
 **Section ID**
-A metadata field attached to every chunk in Huginn's v2 knowledge base. Identifies the specific rule subsection a chunk came from — e.g. `FINRA-11810-b-1`. Composed of the document ID, the lettered section marker, and a sequential suffix to handle documents where the same letter appears multiple times (as in FINRA-11810's sample form appendix). Enables targeted retrieval in the cross-reference pass and full auditability of which specific rule subsections were consulted.
+A metadata field attached to every chunk in Huginn's v2 knowledge base. Identifies the specific rule subsection a chunk came from — e.g. `FINRA-11810-b-1`. Composed of the document ID, the lettered section marker, and a sequential suffix to handle documents where the same letter appears multiple times. Enables targeted retrieval in the cross-reference pass and full auditability of which specific rule subsections were consulted.
 
 **Sell-Out**
 A formal close-out procedure governed by FINRA Rule 11820. When a buyer fails to accept delivery of securities, the seller may sell the securities in the best available market and charge any losses to the defaulting buyer. Any trade exception whose description mentions a sell-out is immediately escalated by Huginn — the exception has already progressed into formal regulatory remedy. Added as a mandatory escalation keyword in v2.
@@ -129,7 +129,7 @@ The only category of trade exception handled by Huginn v1 and v2. A flagged disa
 A documented step-by-step process for handling a specific type of situation. Huginn's v1 knowledge base consisted entirely of synthetic SOPs — one per settlement mismatch sub-type — written for a fictional financial firm. V2 replaces synthetic SOPs entirely with real regulatory documents. The term SOP no longer describes Huginn's knowledge base after v1.
 
 **T+1**
-The standard settlement cycle for most US broker-dealer securities transactions, as required by SEC Rule 15c6-1 since May 28, 2024. Means settlement must occur by the first business day after the trade date. Replaced the previous T+2 standard. The `wrong_settlement_date` exception sub-type in Huginn frequently involves disputes about whether T+1 or a legitimate exception (late-pricing T+2, or a mutually agreed alternative) applies.
+The standard settlement cycle for most US broker-dealer securities transactions, as required by SEC Rule 15c6-1 since May 28, 2024. Means settlement must occur by the first business day after the trade date. Replaced the previous T+2 standard. The `wrong_settlement_date` exception sub-type in Huginn frequently involves disputes about whether T+1 or a legitimate exception applies.
 
 **T+2**
 The settlement cycle standard prior to May 2024, and still applicable in specific circumstances under SEC Rule 15c6-1(c): firm commitment underwritten offerings priced after 4:30 p.m. ET default to T+2 rather than T+1. The distinction between T+1 and T+2 applicability is a key exception applicability question in Huginn's regulatory reasoning rubric.
@@ -138,7 +138,7 @@ The settlement cycle standard prior to May 2024, and still applicable in specifi
 A flagged problem in a financial transaction that cannot complete automatically and requires investigation or resolution. Huginn's input. In practice, exceptions are generated by back-office systems when internal records fail to reconcile with counterparty records at settlement.
 
 **Two-Pass Retrieval**
-Huginn v2's retrieval strategy, implemented in `mimir/retriever.py`. Pass 1 performs a standard semantic similarity search against the full regulatory knowledge base and returns the most relevant chunks. Pass 2 scans those chunks for explicit references to other rules in the knowledge base and fetches targeted chunks from each referenced rule. The two passes are combined and deduplicated before being handed to the LLM. Addresses the heavy cross-referencing in regulatory text that single-pass retrieval cannot resolve.
+Huginn v2's retrieval strategy, implemented in `mimir/retriever.py`. Pass 1 performs a standard semantic similarity search against the full regulatory knowledge base and returns the most relevant chunks. Pass 2 scans those chunks for explicit references to other rules in the knowledge base and fetches targeted chunks from each referenced rule using metadata filtering. The two passes are combined and deduplicated before being handed to the LLM. Addresses the heavy cross-referencing in regulatory text that single-pass retrieval cannot resolve.
 
 **Uniform Practice Code (UPC)**
 The body of FINRA rules (the 11000 series) governing operational and settlement practices for over-the-counter securities transactions between members. Establishes uniform standards for trade terms, deliveries, payments, and close-out procedures. FINRA Rules 11100, 11710, 11810, and 11820 — all part of Huginn's v2 knowledge base — are sections of the Uniform Practice Code.
@@ -158,7 +158,7 @@ This section defines the logic layer of Huginn's agent. A reader familiar with t
 ---
 
 **AgentState**
-The data object that flows through every node in the LangGraph graph. Each node receives the full state and returns a partial update — only the fields it is responsible for. The state carries the original exception, every intermediate value produced by each node, and the final outcome. See `agent/state.py`. In v2, carries `retrieved_document_ids` (list of strings) instead of `retrieved_document_id` (single string).
+The `TypedDict` that flows through every node in the LangGraph graph. Each node receives the full state and returns a partial update — only the fields it is responsible for. The state carries the original exception, every intermediate value produced by each node, and the final outcome. See `agent/state.py`. In v2, carries `retrieved_document_ids` (list of strings) instead of the v1 `retrieved_document_id` (single string).
 
 **Auto-Resolve (outcome value)**
 The string `"auto_resolve"` written to the `outcome` field of the agent state when the confidence score meets or exceeds the escalation threshold (0.75). Triggers the audit log write but does not write to the escalation queue.
@@ -173,7 +173,7 @@ A float between 0.0 and 1.0 produced by the Claude API during the reason node. R
 The second pass in Mimir's two-pass retrieval. After the primary semantic search returns chunks, the cross-reference pass scans those chunks for explicit mentions of other rules in the knowledge base and fetches targeted chunks from each referenced rule using `document_id` metadata filtering. Tagged `retrieved_via: "cross_reference"` in the returned chunk dicts.
 
 **Decide Node**
-The node that translates the confidence score into a binary outcome. Compares `state["confidence_score"]` against `ESCALATION_THRESHOLD = 0.75`. If the score is at or above the threshold, sets `outcome = "auto_resolve"`. If below the threshold, or if `confidence_score` is null (system error), sets `outcome = "escalate"`. Does not call the LLM — the decision is deterministic code.
+The node that translates the confidence score into a binary outcome. Compares `state["confidence_score"]` against `ESCALATION_THRESHOLD = 0.75`. If the score is at or above the threshold, sets `outcome = "auto_resolve"`. If below the threshold, or if `confidence_score` is null (system error or fast-exit), sets `outcome = "escalate"`. Does not call the LLM — the decision is deterministic code.
 
 **Escalate (outcome value)**
 The string `"escalate"` written to the `outcome` field of the agent state. Triggers both the audit log write and the escalation queue write.
@@ -185,16 +185,16 @@ The terminal node on the mandatory escalation fast-exit path. Sets `outcome = "e
 The execution path taken when the classify node detects a mandatory escalation keyword. Bypasses Mimir retrieval and LLM reasoning entirely. Routes directly to `escalate_fast_exit` then `log_result`. In v2, five keywords trigger this path: `sanctions`, `AML`, `regulatory hold`, `buy-in`, `sell-out`.
 
 **Log Result Node**
-The terminal node on all paths. Constructs the full audit log event dict from all state fields and calls `logger.log()`. Has no state output — it is a side-effect-only node. Every execution path terminates here, ensuring every exception is logged regardless of which path was taken.
+The terminal node on all paths. Constructs the full audit log event dict from all state fields and calls `logger.log()`. Every execution path terminates here, ensuring every exception is logged regardless of which path was taken. Returns `{"current_node": "log_result"}` — consistent with all other nodes — rather than an empty dict.
 
 **Primary Pass**
-The first pass in Mimir's two-pass retrieval. A standard semantic similarity search against the full Chroma index using the query string constructed by the retrieve node. Returns the top-k chunks by cosine similarity. Tagged `retrieved_via: "primary"` in the returned chunk dicts.
+The first pass in Mimir's two-pass retrieval. A standard semantic similarity search against the full Chroma index using the query string constructed by the retrieve node. Returns the top-k chunks by cosine similarity score. Tagged `retrieved_via: "primary"` in the returned chunk dicts.
 
 **Reason Node**
-The node that calls the Claude API. Constructs a prompt containing the regulatory reasoning rubric, the retrieved chunks (with `section_id` and `retrieved_via` fields visible), and the exception payload. Parses the JSON response into `confidence_score`, `reasoning_trace`, and `resolution_steps`. On any failure, returns null values for all LLM fields and sets `escalation_reason = "system_error: ..."`.
+The node that calls the Claude API. Constructs a prompt containing the regulatory reasoning rubric (the `SCORING_RUBRIC` constant), the retrieved chunks formatted with `section_id` and `retrieved_via` visible, and the exception payload. Parses the JSON response into `confidence_score`, `reasoning_trace`, and `resolution_steps`. On any failure, returns null values for all LLM fields and sets `escalation_reason = "system_error: ..."`.
 
 **Retrieve Node**
-The node that calls Mimir. Constructs the query string as `"{sub_type}: {description}"`, calls `mimir.retrieve()`, and stores the returned chunks in `retrieved_chunks`. Derives `retrieved_document_ids` by collecting unique `document_id` values across all returned chunks from both retrieval passes.
+The node that calls Mimir. Constructs the query string as `"{sub_type}: {description}"`, calls `mimir.retrieve()`, and stores the returned chunks in `retrieved_chunks`. Derives `retrieved_document_ids` by collecting unique `document_id` values across all returned chunks from both retrieval passes, preserving insertion order.
 
 **Standard Path**
 The execution path taken when no mandatory escalation keyword is detected. Runs the full pipeline: classify → retrieve → reason → decide → log_result. The only path that calls Mimir and the Claude API.
@@ -204,160 +204,165 @@ The specific keyword that caused the fast-exit path to fire, stored in `state["t
 
 ---
 
-## Part 3 — Implementation Details
+## Part 3 — Implementation Reference
 
-This section defines terms a developer will encounter when reading or modifying the source code. Organized by source file.
+File-by-file breakdown of implementation-specific terms. Organized by source file. For terms that span multiple files, they are defined at their source file and noted where else they appear.
 
 ---
 
 ### `models/exception.py`
 
 **`ExceptionType`**
-A Pydantic string enum with a single value: `settlement_mismatch`. All other values are rejected at the API boundary. Defined as a separate enum rather than a literal so v3 can add new exception types by extending the enum without modifying the model structure.
+A Pydantic string enum with a single value: `settlement_mismatch`. All other values are rejected at the API boundary with a structured 422 error. Defined as a separate enum rather than a literal so v3 can add new exception types by extending the enum without modifying the `TradeException` model structure.
 
 **`SettlementMismatchSubType`**
 A Pydantic string enum with three values: `price_mismatch`, `quantity_mismatch`, `wrong_settlement_date`. Scoped to the `settlement_mismatch` parent type and enforced by the model validator.
 
 **`Severity`**
-A Pydantic string enum with three values: `low`, `medium`, `high`. Present in the schema and captured in the audit log, but not passed to the LLM in v2. Activation as a reasoning input is deferred to v3.
+A Pydantic string enum with three values: `low`, `medium`, `high`. Present in the schema and captured in the audit log on every record, but not passed to the LLM in v2. Activation as a reasoning input is deferred to v3, but capturing it now means v3 can analyze severity-outcome correlation from real v2 audit data.
 
 **`model_validator`**
-A Pydantic v2 decorator applied to `TradeException` to enforce sub-type scoping. Validates that the `sub_type` value is appropriate for the `type` value. Exists as a separate validator (rather than collapsing into the enum definition) so v3 can add new type/sub-type pairs without modifying the enum structure.
-
----
-
-### `scripts/build_index.py`
-
-**`DOCUMENT_METADATA`**
-A dict mapping PDF filename stems to their `document_id` values. Explicit mapping rather than dynamic derivation — if a file is present but not in the map, it is skipped with a warning. Ensures `document_id` values are always predictable and match the interface contract's Knowledge Base Reference table.
-
-**Section boundary parser**
-The custom text processing logic in `build_index.py` that splits regulatory document text into semantically correct chunks. Uses regex pattern `^\([a-z]\)` with `re.MULTILINE` to detect lettered subsection headers, combined with a 200-character minimum chunk length threshold to prevent false splits on incidental parenthetical references. Replaces v1's `RecursiveCharacterTextSplitter`.
-
-**Sequential suffixing**
-The `section_id` disambiguation strategy used when a document produces duplicate lettered section markers. The first occurrence of `(b)` in a document produces `section_id = "FINRA-11810-b-1"`, the second produces `"FINRA-11810-b-2"`. Applied to all documents for consistency — documents with no duplicates use the `-1` suffix throughout. Handles the known case of FINRA-11810's sample buy-in forms, which restart the lettered section labeling after the main rule text.
-
-**Preamble chunk**
-A chunk produced from pre-section text in eCFR-sourced PDFs (SEC-15c6-1 and SEC-15c6-2). The eCFR page includes a header before the first lettered section — this text is captured as a separate chunk with `section_id = "{document_id}-preamble"`. It is indexed but has low semantic similarity to settlement mismatch queries and will rarely be retrieved.
-
-**Chunk inspection log**
-A stdout summary printed by `build_index.py` before the Chroma index is built. Lists each document with its chunk count and each chunk's `section_id` and character count. The gate for Subplan 2 — must be inspected manually to confirm section boundaries are semantically correct before proceeding.
+A Pydantic v2 decorator applied to `TradeException` to enforce sub-type scoping. Validates that the `sub_type` value is appropriate for the `type` value. Exists as a separate validator function — not collapsed into the enum definition — so v3 can add new type/sub-type pairs by extending the validator's mapping without modifying the enum structure.
 
 ---
 
 ### `mimir/index.py`
 
 **`PERSIST_DIR`**
-The path to the directory where `build_index.py` writes the Chroma index. Shared constant between `build_index.py` and `mimir/retriever.py`. If they diverge, the retriever loads an empty or nonexistent index and all retrievals return empty results.
+The path string (`"knowledge_base/processed"`) where `build_index.py` writes the Chroma index and from which `mimir/retriever.py` loads it. The single shared constant prevents silent drift: if the two files disagreed on this path, the retriever would load from a nonexistent or empty directory and return no results without raising an error.
 
 **`EMBEDDING_MODEL`**
-The HuggingFace sentence transformer model used to generate vector embeddings. `"sentence-transformers/all-mpnet-base-v2"`. Shared constant between `build_index.py` and `mimir/retriever.py`. If they diverge, the retriever cannot query the index — embeddings must be generated by the same model that built the index.
+The HuggingFace sentence transformer model identifier (`"sentence-transformers/all-mpnet-base-v2"`) shared between `build_index.py` and `mimir/retriever.py`. The index and the retriever must use the same embedding model — querying an index with a different model produces meaningless similarity scores without raising any error.
 
 ---
 
 ### `mimir/retriever.py`
 
 **`TOP_K_CROSS_REF = 2`**
-The number of chunks fetched per referenced rule in the cross-reference pass (Pass 2). Independent of the `top_k` parameter passed by the caller, which controls Pass 1 only. Smaller than `top_k` because Pass 2 fetches for specific context on a known reference, not a broad relevance search. Defined as a module-level constant so it is visible and tunable without reading the retrieval logic.
-
-**`KNOWN_DOCUMENT_IDS`**
-The set of rule number substrings used for cross-reference detection: `{"15c6-1", "15c6-2", "11100", "11710", "11810", "11820"}`. Specified as a separate module-level constant in the design documents.
-
-[Updated post-implementation: `KNOWN_DOCUMENT_IDS` was not implemented as a separate constant. The two constants (`KNOWN_DOCUMENT_IDS` and `SUBSTRING_TO_DOCUMENT_ID`) were collapsed into one. Cross-reference detection iterates `SUBSTRING_TO_DOCUMENT_ID.items()`, which provides both the substrings and their full `document_id` values in a single pass. In v3, adding a new document requires updating only `SUBSTRING_TO_DOCUMENT_ID`.]
+The number of chunks fetched per referenced rule in the cross-reference pass (Pass 2). Independent of the `top_k` parameter passed by the caller, which controls Pass 1 only. Smaller than `top_k` because Pass 2 fetches targeted context for a known reference, not a broad relevance search.
 
 **`SUBSTRING_TO_DOCUMENT_ID`**
-A dict mapping rule number substrings to their full `document_id` values used in Chroma metadata filtering: `{"15c6-1": "SEC-15c6-1", "15c6-2": "SEC-15c6-2", "11100": "FINRA-11100", "11710": "FINRA-11710", "11810": "FINRA-11810", "11820": "FINRA-11820"}`. Cross-reference detection iterates this dict — when a substring appears in chunk text, the corresponding full `document_id` is queued for Pass 2. Also serves as `KNOWN_DOCUMENT_IDS` (see above).
+A dict mapping rule number substrings to their full `document_id` values: `{"15c6-1": "SEC-15c6-1", "15c6-2": "SEC-15c6-2", "11100": "FINRA-11100", ...}`. Serves a dual purpose: the keys are used for cross-reference detection (substring search against chunk text), and the values are used to construct the `document_id` filter for Pass 2 queries. The design document specified two separate constants (`KNOWN_DOCUMENT_IDS` and a mapping); the implementation collapses them into one dict because iterating `items()` provides both in a single pass. Adding a new regulatory document requires one entry here.
+
+**`_vectorstore`**
+A module-level singleton holding the loaded Chroma index. Initialized lazily on the first `retrieve()` call via `_get_vectorstore()`. Loading the HuggingFace embedding model and the persisted Chroma index is expensive — doing it once at module level means all subsequent requests reuse the same in-memory store.
 
 **`retrieved_via`**
-A field in every returned chunk dict indicating which retrieval pass produced it. Value is either `"primary"` (Pass 1 semantic search) or `"cross_reference"` (Pass 2 targeted retrieval). Enables the audit log to record which chunks came from each pass without exposing pass internals through the public interface.
-
-**`similarity_search_with_score(query, k=top_k)`**
-The Chroma method used for Pass 1. Returns `(Document, score)` tuples. The score is cosine distance — lower distance means higher similarity. The retriever exposes this as `similarity_score` in the returned chunk dict.
+A field in every returned chunk dict indicating which retrieval pass produced it. Value is `"primary"` (Pass 1 semantic search) or `"cross_reference"` (Pass 2 targeted retrieval). Enables the audit log to record which chunks came from each pass without exposing retrieval internals through the public interface. Visible to the LLM in the reasoning prompt.
 
 **Deduplication**
-The step that combines Pass 1 and Pass 2 results and removes duplicate chunks. Deduplication is keyed on `section_id`. When a chunk appears in both passes, the `"primary"` tagged version is retained and the `"cross_reference"` duplicate is discarded.
+The step that combines Pass 1 and Pass 2 results and removes chunks that appear in both. Keyed on `section_id`. When a chunk appears in both passes, the `"primary"` tagged version is retained — it was most relevant in the semantic search, and preserving that tag is more accurate for audit purposes than replacing it with `"cross_reference"`.
 
 ---
 
 ### `logger/audit.py`
 
+**`_db_initialized`**
+A module-level boolean flag that prevents `_init_db()` from opening a new SQLite connection and running `CREATE TABLE IF NOT EXISTS` on every call to `log()`. Set to `True` after the first successful initialization. The additional `AUDIT_DB.exists()` check in `_init_db()` handles process restarts — the in-memory flag resets to `False`, but if the database file already exists it need not be recreated.
+
 **`INSERT OR REPLACE`**
-The SQLite statement used for audit log rows. `job_id` is the primary key. If a job ID is somehow written twice, the second write replaces the first rather than raising a uniqueness error. In practice this does not occur — job IDs are UUIDs.
+The SQLite statement used for audit log rows. `job_id` is the primary key. If a job ID is somehow written twice, the second write replaces the first rather than raising a uniqueness error. In practice this does not occur — job IDs are UUIDs generated per request.
 
 **`full_event_json`**
-A SQLite column storing the entire event dict serialized as a JSON string. Individual columns (`outcome`, `confidence_score`, etc.) support queries on common fields. `full_event_json` ensures no data is lost regardless of which columns exist — when v3 adds new fields to the event dict, they appear in `full_event_json` automatically without a schema migration.
+A SQLite column storing the entire event dict serialized as a JSON string. Individual columns (`outcome`, `confidence_score`, etc.) support efficient queries on common fields. `full_event_json` ensures no data is lost regardless of which columns exist — when v3 adds new fields to the event dict, they appear in `full_event_json` automatically without a schema migration. The `GET /exceptions/{job_id}` and `GET /escalations` endpoints read this column directly.
 
-**`retrieved_document_ids`**
-Stored in the SQLite `audit_log` table as a JSON-serialized string (e.g. `'["FINRA-11810", "FINRA-11710"]'`). Queryable by parsing the JSON string. The `full_event_json` column always contains the authoritative copy.
+**`decision_timestamp`**
+A field in the audit log event dict set by the `log_result` node using `datetime.now(timezone.utc).isoformat()`. Distinguished from `timestamp` (the original exception timestamp from the incoming payload). Uses UTC explicitly — naive datetimes in a financial audit log are a compliance liability because there is no way to determine the timezone from the value alone.
+
+**`retrieved_document_ids` (SQLite column)**
+Stored as a JSON-serialized string (e.g. `'["FINRA-11810", "FINRA-11710"]'`). The `full_event_json` column always contains the authoritative copy; this column supports direct SQL queries on document ID membership without parsing the full JSON.
 
 ---
 
 ### `agent/state.py`
 
 **`TypedDict`**
-The Python typing construct used to define `AgentState`. LangGraph's `StateGraph` expects a `TypedDict` as its state type. Each node receives and returns plain dicts; LangGraph merges the partial return into the full state.
+The Python typing construct used to define `AgentState`. LangGraph's `StateGraph` expects a `TypedDict` as its state type. Nodes receive and return plain dicts; LangGraph merges the partial return into the full state. Using Pydantic here would require conversion to and from dicts at every node boundary.
 
 **`retrieved_document_ids`**
-A `list[str]` field in `AgentState` carrying the unique `document_id` values across all chunks returned by Mimir. Populated by the retrieve node. Empty list on the fast-exit path. Replaces v1's `retrieved_document_id: str | None` (single string).
+A `list[str]` field in `AgentState` carrying the unique `document_id` values across all chunks returned by Mimir, in the order they first appeared in the combined chunk list. Populated by the retrieve node. Empty list on the fast-exit path. Replaces v1's `retrieved_document_id: str | None` (single string or null). Stored separately from `retrieved_chunks` so the API response and audit log can include the flat list without recomputing it from the chunk list on every access.
 
 **`llm_raw_response`**
-The Claude API's raw text response before JSON parsing. Stored in state and written to the audit log for full fidelity. If the API returns malformed JSON, this field captures exactly what came back, enabling debugging without re-running the exception.
+The Claude API's raw text response before JSON parsing. Stored in state and written to the audit log for full fidelity. If the API returns malformed JSON or wraps the response in markdown fences, this field captures exactly what came back — enabling debugging without re-running the exception.
+
+**`current_node`**
+A string field updated by every node to record the name of the last node that executed. LangGraph does not natively expose the currently executing node as a readable value. This field is the workaround, updated as a convention by every node including `log_result`.
 
 ---
 
 ### `agent/nodes.py`
 
+**`SCORING_RUBRIC`**
+A module-level string constant containing the full text of the four-factor regulatory reasoning rubric passed to the Claude API in the reason node. Defined at module level — not assembled inside the `reason()` function — because it is the primary artifact for v3 prompt engineering. Every confidence score in the v2 audit log was produced by this exact text against `LLM_MODEL`. Changes to this constant change the system's scoring behavior.
+
 **`ESCALATION_THRESHOLD = 0.75`**
-The module-level constant controlling the auto-resolve/escalate boundary. Applies to all sub-types in v2. Carried forward from v1 as a provisional value — recalibrate after v2 audit log data accumulates against real regulatory documents. Per sub-type thresholds are a v3 feature.
+The module-level constant controlling the auto-resolve/escalate boundary. Applies to all sub-types in v2. Carried forward from v1 as a provisional value — recalibrate after v2 audit log data accumulates against real regulatory documents and the new rubric. Per sub-type thresholds are a v3 feature.
 
 **`LLM_MODEL = "claude-sonnet-4-6"`**
-The Claude API model identifier. Defined as a module-level constant so it is easy to update when a new model is released. The model string must match an available Anthropic model at runtime.
+The Claude API model identifier. Defined as a module-level constant so the model string is easy to locate and update when a new model is released. Every confidence score in the v2 audit log was produced by this model against `SCORING_RUBRIC`.
 
 **`ESCALATION_KEYWORDS`**
-The module-level list of mandatory escalation keywords. In v2: `["sanctions", "AML", "regulatory hold", "buy-in", "sell-out"]`. Detection is case-insensitive. Expanded from v1's three keywords to include `"buy-in"` and `"sell-out"` following Phase 1 regulatory document review.
+The module-level list of mandatory escalation keywords. In v2: `["sanctions", "AML", "regulatory hold", "buy-in", "sell-out"]`. A list (not a set) because list iteration preserves order — the first matching keyword is recorded in `triggered_keyword`. Detection is case-insensitive.
 
 **Markdown fence stripping**
-A defensive parsing step in the reason node. The Claude API is instructed to return raw JSON, but the model sometimes wraps the response in markdown code fences. The stripping logic checks for a leading ` ``` `, removes the fence and optional `json` language tag, and strips the trailing fence before calling `json.loads()`. Without this, the JSON parse fails and the exception auto-escalates with a `system_error`.
+A defensive parsing step in the reason node. The Claude API is instructed to return raw JSON, but the model sometimes wraps the response in triple-backtick code fences. The stripping logic checks for a leading ` ``` `, removes the fence and optional `json` language tag, and strips the trailing fence before calling `json.loads()`. Without this, the JSON parse fails and the exception auto-escalates with a `system_error`.
 
-**Chunk formatting in the LLM prompt**
-Each retrieved chunk is formatted in the prompt as:
-```
-[{section_id}] ({retrieved_via})
-{text}
----
-```
-The `section_id` and `retrieved_via` fields are included so the LLM can reason about which specific regulatory subsections were consulted and whether they came from the primary search or cross-reference resolution.
+**`dict.fromkeys()` for `retrieved_document_ids`**
+Used in the `retrieve` node as `list(dict.fromkeys(c["document_id"] for c in chunks))`. Deduplicates while preserving insertion order, which `set()` does not. The ordering reflects which documents appeared first in the combined chunk list (Pass 1 results before Pass 2 results), producing a more meaningful ID list than arbitrary set ordering.
 
 ---
 
 ### `agent/graph.py`
 
 **`_route_after_classify(state)`**
-A LangGraph routing function. Not a node — it produces no state update. Reads `triggered_keyword` and returns a routing key: `"fast_exit"` or `"standard"`. Used as the condition for the conditional edge after the classify node.
-
-[Updated post-implementation: Specified as `should_fast_exit(state)`. Implementation uses `_route_after_classify`.]
+A LangGraph routing function — not a node. Produces no state update. Reads `triggered_keyword` via `state.get()` (not direct key access) and returns `"fast_exit"` if truthy, `"standard"` if falsy or absent. Used as the conditional function for the edge after the classify node.
 
 **`_route_after_decide(state)`**
-A LangGraph routing function. Reads `outcome` and returns `"auto_resolve"` or `"escalate"`. Both keys route to `log_result` — the conditional edge exists to make the branching explicit and extensible, not to route to different terminal nodes.
-
-[Updated post-implementation: Specified as `should_escalate(state)`. Implementation uses `_route_after_decide`.]
+A LangGraph routing function — not a node. Reads `outcome` and returns `"auto_resolve"` or `"escalate"`. Both values map to `log_result` in the edge definition — the conditional edge makes the branching explicit in the graph structure without routing to different terminal nodes.
 
 **`huginn_graph = build_graph()`**
-The module-level compiled graph instance. Compiled once at import time and shared across all callers in the process. The API layer imports this name directly: `from agent.graph import huginn_graph`.
+The module-level compiled graph instance. Compiled once at import time and reused across all requests in the process. The API layer imports this name directly: `from agent.graph import huginn_graph`. Compilation validates node registrations and compiles edge routing; doing this once avoids the cost on every request.
+
+**`build_graph()`**
+The function that constructs and compiles the graph. A separate function (rather than just module-level code) because the test suite imports `build_graph()` to verify the graph structure independently of the `huginn_graph` singleton.
 
 ---
 
 ### `api/main.py`
 
-**`_result_store`**
-An in-memory dict specified in the masterplan to back `GET /exceptions/{job_id}`. Not implemented.
+**`payload: dict` parameter in `submit_exception`**
+`POST /exceptions` accepts a raw dict rather than a typed `TradeException` parameter. If `TradeException` were the FastAPI parameter type, FastAPI would perform automatic validation and return its own 422 format. By accepting a dict and catching `ValidationError` explicitly, the endpoint controls the 422 response body — returning `e.errors()`, which is the Pydantic structured error format.
 
-[Updated post-implementation: The implementation does not use an in-memory dict. `GET /exceptions/{job_id}` queries the SQLite audit database (`logs/audit.db`) and returns the stored `full_event_json` column. Persistent across server restarts — see Decision 51.]
+**`exc.model_dump(mode="json")`**
+Converts the validated `TradeException` Pydantic model to a plain dict with JSON-serializable values. `mode="json"` serializes UUID as a hyphenated string and datetime as ISO 8601 — necessary because the agent state, audit logger, and JSON responses all require plain serializable dicts. The design documents described a `model_dump_json() + json.loads()` round-trip; the implementation uses `model_dump(mode="json")` directly, which produces the same result without the intermediate JSON string.
 
-**`exception.model_dump(mode="json")`**
-The method used to convert a Pydantic `TradeException` model to a plain dict with JSON-serializable values before passing to the agent state. `mode="json"` serializes UUID as a hyphenated string and datetime as an ISO 8601 string. Necessary because the agent state and audit logger expect plain dicts throughout.
+**Deferred imports in GET endpoints**
+`sqlite3`, `json`, and `AUDIT_DB` are imported inside `get_result()` and `get_escalations()` rather than at module level. This keeps the module-level namespace focused on FastAPI and the project components that are needed for every request, not just GET requests.
 
-[Updated post-implementation: The design documents described `model_dump_json() + json.loads()` (a JSON round-trip). The implementation uses `model_dump(mode="json")` directly, which produces the same result without the intermediate JSON string.]
+**`full_event_json` as the GET response source**
+Both `GET /exceptions/{job_id}` and `GET /escalations` read `full_event_json` from SQLite and return `json.loads(row[0])` directly. This means the GET response always reflects exactly what the audit logger wrote — no field mapping or reconstruction required.
 
-**Full-result POST response**
-`POST /exceptions` returns the full agent result immediately. `GET /exceptions/{job_id}` provides a second read path from the SQLite audit log. In v2, the result is always ready when POST returns. The two-endpoint pattern keeps the interface forward-compatible with v3 async processing, where the result may not be ready when POST returns — see Decision 50.
+---
+
+### `scripts/build_index.py`
+
+**`DOCUMENT_MAP`**
+A dict mapping PDF filename stems to their `document_id` values. Explicit rather than dynamically derived — a file present in `knowledge_base/raw/` but absent from this dict is skipped with a warning rather than auto-included. The explicit mapping makes the filename-to-ID relationship auditable and prevents unknown files from entering the knowledge base silently.
+
+**`_is_real_section(text, match)`**
+A filter function applied to every regex match of `^\([a-z]\)`. Returns `True` only if the text following the match begins with an uppercase character (after stripping leading whitespace and optional quote/parenthesis characters). The purpose: FINRA-11810 contains `(b) through (g) of this Rule shall apply` as a mid-sentence phrase that appears at the start of a line in the extracted PDF text, triggering the section regex. Without this filter, that phrase produces a spurious 292-character chunk that passes the 200-character minimum threshold and is indexed as a real section.
+
+**Section boundary parser**
+The custom text processing logic in `build_index.py` that splits regulatory document text into semantically correct chunks. Uses `SECTION_PATTERN = re.compile(r"^\([a-z]\)", re.MULTILINE)` combined with `_is_real_section()` to detect real section headers. Replaces v1's `RecursiveCharacterTextSplitter`. The section header line (`"{document_id} Section ({letter}):\n"`) is prepended to every chunk body, so each chunk is self-contained as a retrievable unit.
+
+**Sequential suffixing**
+The `section_id` disambiguation strategy used when a document produces duplicate lettered section markers. The first occurrence of `(b)` in a document produces `section_id = "FINRA-11810-b-1"`, the second produces `"FINRA-11810-b-2"`. Applied to all documents for consistency — documents with no duplicates use the `-1` suffix throughout. Handles the known case of FINRA-11810's sample buy-in forms, which restart the lettered section labeling after the main rule text.
+
+**Preamble chunk**
+A chunk produced from text that appears before the first lettered section in a document. For eCFR-sourced PDFs (SEC-15c6-1 and SEC-15c6-2), this includes the regulatory header and scope language. Assigned `section_id = "{document_id}-preamble"`. Short preambles (under 200 characters) are prepended to the first section rather than indexed as standalone chunks.
+
+**Duplicate `section_id` gate check**
+A validation step that runs after all chunks are assembled but before `Chroma.from_documents()` is called. If any two chunks share a `section_id`, the script prints an error and exits. This prevents a silent data quality problem: the deduplication logic in `mimir/retriever.py` uses `section_id` as its key — a collision would cause one chunk to be silently dropped on every retrieval.
+
+**Chunk inspection log**
+A stdout summary printed before the Chroma index is built. Lists each document with its chunk count, and each chunk with its `section_id` and character count. The gate for Subplan 2 — must be inspected manually to confirm section boundaries are semantically correct before proceeding. The log prints before building so a misconfigured parser can be fixed without having written a broken index.
