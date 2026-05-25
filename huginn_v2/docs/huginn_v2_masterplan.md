@@ -3,13 +3,13 @@
 **Phase:** 4 — Masterplan + Atomic Subplans
 **Status:** Implementation complete. Phase 7 (Feedback Loop) complete.
 **Last updated:** May 2026
-**Source of truth:** `huginn_v2_interface_contract.md`, `huginn_v2_design_decisions.md` (Decisions 1–46)
+**Source of truth:** `huginn_v2_interface_contract.md`, `huginn_v2_design_decisions.md` (Decisions 1–57)
 
 ---
 
 ## The Completed System — Plain English Description
 
-Huginn is a FastAPI service that accepts flagged financial trade exceptions over HTTP, classifies them, and decides whether to resolve them automatically or escalate them to a human reviewer. When an exception arrives, it is validated against a strict schema — only settlement_mismatch exceptions with a valid sub-type are accepted. Inside the agent, two fast exits fire before any expensive operations: exceptions with an invalid type return a structured error, and exceptions whose description contains a mandatory escalation keyword (sanctions, AML, regulatory hold, buy-in, sell-out) are immediately escalated without touching the knowledge base or the LLM. All other exceptions follow the standard path: the agent queries Mimir — a Chroma-backed RAG retrieval layer — for the most relevant chunks from a real regulatory document knowledge base (SEC Rules 15c6-1 and 15c6-2, FINRA Rules 11100, 11710, 11810, and 11820). Mimir performs two-pass retrieval: a semantic search pass followed by a targeted cross-reference resolution pass that fetches additional chunks from any regulatory rules explicitly referenced in the first-pass results. The combined chunks are passed along with the exception and a regulatory reasoning scoring rubric to the Claude API, which returns a confidence score used to decide whether to auto-resolve (≥ 0.75) or escalate (< 0.75). Every decision — on every path — is written in full fidelity to logs/audit.jsonl, a local SQLite database, and, if escalated, to logs/escalation_queue.jsonl. Three FastAPI endpoints expose the full system: POST /exceptions to submit an exception and receive a job ID, GET /exceptions/{job_id} to retrieve the full decision, and GET /escalations to inspect the human reviewer's inbox.
+Huginn is a FastAPI service that accepts flagged financial trade exceptions over HTTP, classifies them, and decides whether to resolve them automatically or escalate them to a human reviewer. When an exception arrives, it is validated against a strict schema — only settlement_mismatch exceptions with a valid sub-type are accepted. Inside the agent, two fast exits fire before any expensive operations: exceptions with an invalid type return a structured error, and exceptions whose description contains a mandatory escalation keyword (sanctions, AML, regulatory hold, buy-in, sell-out) are immediately escalated without touching the knowledge base or the LLM. All other exceptions follow the standard path: the agent queries Mimir — a Chroma-backed RAG retrieval layer — for the most relevant chunks from a real regulatory document knowledge base (SEC Rules 15c6-1 and 15c6-2, FINRA Rules 11100, 11710, 11810, and 11820). Mimir performs two-pass retrieval: a semantic search pass followed by a targeted cross-reference resolution pass that fetches additional chunks from any regulatory rules explicitly referenced in the first-pass results. The combined chunks are passed along with the exception and a regulatory reasoning scoring rubric to the Claude API, which returns a confidence score used to decide whether to auto-resolve (≥ 0.75) or escalate (< 0.75). Every decision — on every path — is written in full fidelity to logs/audit.jsonl, a local SQLite database, and, if escalated, to logs/escalation_queue.jsonl. Four HTTP endpoints expose the full system: POST /exceptions to submit an exception and receive the full agent result synchronously (job_id, outcome, confidence_score, reasoning_trace, resolution_steps, escalation_reason, retrieved_document_ids), GET /exceptions/{job_id} to retrieve the full decision from the persistent SQLite audit log by job ID, GET /escalations to inspect the escalation queue, and GET /health for container orchestration health checks. Because v2 processing is synchronous, the POST endpoint returns the complete result immediately rather than a minimal job-receipt response.
 
 ---
 
@@ -33,7 +33,7 @@ Subplans are executed in strict order. No subplan begins until the previous subp
 | 3 | Mimir retriever | Retriever smoke test passes against live index |
 | 4 | Agent state and graph structure | Graph compiles, all nodes registered |
 | 5 | LangGraph nodes | Full agent trace produces valid output on test input |
-| 6 | API layer | All three endpoints return correct responses |
+| 6 | API layer | All four endpoints return correct responses |
 | 7 | Integration and smoke test | Full end-to-end test suite passes |
 
 ---
@@ -571,11 +571,11 @@ Confirm:
 ## Subplan 6 — API Layer
 
 ### What to build
-`api/main.py` — the FastAPI application with all three endpoints.
+`api/main.py` — the FastAPI application with all four endpoints.
 
 ### Interface contract reference
-Component 2 — API Layer (all three endpoints, full request/response schemas)
-Design Decisions 7, 19, 20, 21
+Component 2 — API Layer (all four endpoints, full request/response schemas)
+Design Decisions 7, 19, 20, 21, 50, 51, 52, 53
 
 ### Prerequisites
 Subplan 5 gate must be confirmed passing.
@@ -584,39 +584,36 @@ Subplan 5 gate must be confirmed passing.
 
 **Application setup:**
 ```python
-app = FastAPI(title="Huginn v2", version="2.0.0")
+app = FastAPI(title="Huginn v2 — Trade Exception Triage")
 ```
 
-**In-memory result store:**
-```python
-results: dict[str, dict] = {}
-```
-Keyed by `job_id`. Populated synchronously after agent run. This is the v2 fake-async pattern — the interface is forward-compatible with v3 async processing.
+[Updated post-implementation: No `version` parameter in the FastAPI constructor. No in-memory `results: dict` store — see Decision 51.]
 
 **`POST /exceptions`:**
-1. Validate request body as `TradeException` (Pydantic handles this automatically)
-2. Generate a new `job_id` UUID
-3. Initialize the `AgentState` with the exception dict and job_id
-4. Run the compiled LangGraph graph synchronously
-5. Store the final state in `results[job_id]`
-6. Return the POST response schema (job_id, status, exception_id, timestamp)
+1. Accept `payload: dict` (not `exc: TradeException` — see Decision 34 implementation-phase update)
+2. Manually instantiate `TradeException(**payload)` and catch `ValidationError` → re-raise as `HTTPException(422, e.errors())`
+3. Generate a new `job_id` UUID
+4. Serialize the validated model with `exc.model_dump(mode="json")` and build the initial `AgentState`
+5. Run the compiled LangGraph graph synchronously via `huginn_graph.invoke(state)`
+6. Return the full agent result immediately: `job_id`, `outcome`, `confidence_score`, `reasoning_trace`, `resolution_steps`, `escalation_reason`, `retrieved_document_ids` — see Decision 50
 
 **`GET /exceptions/{job_id}`:**
-Look up `job_id` in `results`. If not found, return HTTP 404. Otherwise return the GET response schema — map from `AgentState` fields to response fields exactly as specified in Component 2.
-
-`retrieved_document_ids` in the response comes directly from `state["retrieved_document_ids"]` — it is a list of strings, empty list on fast-exit path.
+Query `logs/audit.db` SQLite database for the row where `job_id` matches. Return `json.loads(full_event_json)` — the full event dict from the audit log. Return HTTP 404 if not found or if the database does not exist. See Decision 51.
 
 **`GET /escalations`:**
-Filter `results` for entries where `state["outcome"] == "escalate"`. Return the escalations response schema. Return `{"escalations": []}` when no escalations exist.
+Query `logs/audit.db` filtered by `outcome = 'escalate'`. Return `{"escalations": [json.loads(row) for row in rows]}`. Return `{"escalations": []}` if no rows exist or the database does not exist. See Decision 53.
+
+**`GET /health`:**
+Return `{"status": "ok"}`. No dependencies. See Decision 52.
 
 **Pydantic validation errors:**
-Do not add a custom exception handler. FastAPI's default 422 response is used as specified in Decision 34.
+`submit_exception` accepts `payload: dict` to enable explicit `ValidationError` catch. Raises `HTTPException(status_code=422, detail=e.errors())`. See Decision 34 implementation-phase update.
 
 **What NOT to build:**
 - No authentication
 - No rate limiting
 - No background task processing — synchronous only in v2
-- No custom exception handlers
+- No in-memory results store — all reads go to SQLite
 
 ### Gate — Subplan 6
 
@@ -624,11 +621,12 @@ Start the server: `uvicorn api.main:app --reload`
 
 Using the `/docs` interface at `http://127.0.0.1:8000/docs`, confirm:
 
-1. `POST /exceptions` with a valid exception body returns HTTP 200 with correct schema
-2. `GET /exceptions/{job_id}` with the returned job_id returns HTTP 200 with outcome, confidence_score, reasoning_trace, and `retrieved_document_ids` as a list
+1. `POST /exceptions` with a valid exception body returns HTTP 200 with full result schema (job_id, outcome, confidence_score, reasoning_trace, resolution_steps, escalation_reason, retrieved_document_ids)
+2. `GET /exceptions/{job_id}` with the returned job_id returns HTTP 200 with the full event dict
 3. `GET /exceptions/{job_id}` with an unknown job_id returns HTTP 404
 4. `POST /exceptions` with an invalid `type` value returns HTTP 422
 5. `GET /escalations` returns `{"escalations": [...]}` — submit a sanctions exception first if needed to populate it
+6. `GET /health` returns `{"status": "ok"}`
 
 ---
 
@@ -693,7 +691,7 @@ Before declaring v2 complete:
 - [ ] `logs/audit.db` is queryable — run `SELECT sub_type, outcome, confidence_score FROM audit_log` and confirm rows exist
 - [ ] `logs/escalation_queue.jsonl` contains entries from Tests 2, 3, and 4
 - [ ] `knowledge_base/processed/` is non-empty and contains the persisted Chroma index
-- [ ] `http://127.0.0.1:8000/docs` loads and all three endpoints are visible
+- [ ] `http://127.0.0.1:8000/docs` loads and all four endpoints are visible
 - [ ] No open TODOs or stub functions remain in any source file
 
 ---

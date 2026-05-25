@@ -484,6 +484,8 @@ The parent rule identifier and section header are prepended to every chunk as co
 
 **Rejected option:** Custom exception handler returning simplified flat error message.
 
+[Implementation-phase update: The mechanism differs from "FastAPI's default 422 handler." `submit_exception` accepts `payload: dict` rather than `exc: TradeException`, which bypasses FastAPI's automatic model validation. `TradeException(**payload)` is manually instantiated inside the function; if validation fails, `ValidationError` is caught and re-raised as `HTTPException(status_code=422, detail=e.errors())`. This produces the same 422 HTTP status with Pydantic's structured error list as FastAPI's default handler would, but routes through explicit application code rather than FastAPI's middleware. `payload: dict` was chosen specifically to give the endpoint explicit control over the 422 response body — accepting the typed model directly would have FastAPI return its own handler's format. The net API response is equivalent; the mechanism is deliberate.]
+
 ---
 
 ## Decision 35 — Knowledge Base Document Set
@@ -750,6 +752,78 @@ The two-endpoint pattern is preserved: `GET /exceptions/{job_id}` still provides
 **Reasoning:** Absent during initial implementation — new developers had no reproducible install path. Generated and committed after the Phase 7 inspection identified it as a known issue. Full `pip freeze` output is used rather than a curated list because transitive dependency versions affect embedding model loading and LangGraph behavior; partial version pinning creates false confidence.
 
 **Rejected option:** Curated list of top-level dependencies only. Rejected because transitive dependency version mismatches are a known source of silent failures in the LangGraph + Chroma + sentence-transformers stack.
+
+---
+
+## Decision 55 — LLM Scoring Rubric Full Text
+
+**Decision:** The exact verbatim text of the `SCORING_RUBRIC` constant in `agent/nodes.py`, locked as implemented:
+
+```
+You are a financial trade exception triage agent. Your task is to assess whether a settlement mismatch exception can be auto-resolved based on the retrieved regulatory document context.
+
+Score the exception on a scale of 0.0 to 1.0 using the following four factors:
+
+1. CONDITION MATCH (0.0–1.0)
+Do the exception facts satisfy the triggering conditions specified in the retrieved regulatory rule? Does the scenario described meet the threshold or criteria the rule requires for a specific obligation or remedy to apply?
+
+2. OBLIGATION CLARITY (0.0–1.0)
+Does the retrieved rule specify a clear required action given the exception facts? Or does the rule leave the required response ambiguous, conditional on additional facts not present in the exception description?
+
+3. EXCEPTION APPLICABILITY (0.0–1.0)
+Do any of the rule's carve-outs, exceptions, or exclusions apply to this exception? Consider whether any exception provisions (e.g. T+2 late-pricing exception in Rule 15c6-1, clearing agency carve-outs in Rule 11810) apply to the described scenario.
+
+4. CROSS-REFERENCE RESOLUTION (0.0–1.0)
+Were all rules referenced within the retrieved chunks also retrieved and considered? Unresolved cross-references lower confidence because the complete regulatory picture is not available.
+
+Scoring guidance:
+- 0.85–1.00: Condition match is clear, obligation is unambiguous, no exceptions apply, all cross-references resolved.
+- 0.75–0.84: Condition match is probable, obligation is mostly clear, minor ambiguity exists but resolution path is defensible.
+- 0.50–0.74: Condition match is uncertain, or an exception may apply but cannot be determined from available facts, or cross-references are unresolved.
+- 0.00–0.49: Condition match cannot be established, or the rule explicitly requires human judgment, or critical cross-references are missing.
+
+Respond with a JSON object only. No preamble. No explanation outside the JSON. Exactly three fields:
+{
+  "confidence_score": <float between 0.0 and 1.0>,
+  "reasoning_trace": "<step-by-step explanation of how you reached this score>",
+  "resolution_steps": "<specific steps to resolve this exception per the retrieved regulatory guidance>"
+}
+```
+
+This text is locked. Every confidence score in the v2 audit log was produced by this exact rubric against `LLM_MODEL = "claude-sonnet-4-6"`. Changes to this text change the system's scoring behavior and invalidate rubric-to-rubric comparison of confidence scores across versions.
+
+**Reasoning:** Decision 29 describes the four factors and scoring bands conceptually, and the masterplan Subplan 5 provided the full text as a specification input. Neither locked the exact verbatim text as an implementation artifact. The text is the primary target for v3 prompt engineering — locking it here establishes the baseline from which v3 iterates.
+
+**Rejected option:** Recording only the four factor names and scoring band descriptions. Rejected because exact phrasing affects LLM behavior — the conceptual description and the verbatim text are not interchangeable for the purpose of v3 iteration.
+
+---
+
+## Decision 56 — Two-Pass Retrieval Exact Configuration
+
+**Decision:** The exact retrieval configuration in `mimir/retriever.py`:
+- Pass 1 (semantic search): `top_k = 3` — function default parameter; the retrieve node always calls `mimir.retrieve(query)` without overriding `top_k`
+- Pass 2 (cross-reference): `TOP_K_CROSS_REF = 2` — module-level constant, independent of the `top_k` parameter
+- Pass 2 query: the same query string as Pass 1 — no separate cross-reference query template; the Pass 2 call is `vs.similarity_search_with_score(query, k=TOP_K_CROSS_REF, filter={"document_id": full_doc_id})`
+
+**Reasoning:** Decision 37 specifies the two-pass strategy conceptually. The exact parameter values were deferred to implementation. `top_k=3` was the interface contract default and provides three primary context chunks — sufficient for regulatory reasoning without overwhelming the prompt. `TOP_K_CROSS_REF=2` keeps Pass 2 targeted: a document is being fetched because it was explicitly referenced in a chunk, so two focused chunks from it are more useful than a broad k-chunk search. Using the same query for both passes avoids introducing a second semantic variable into what is intended to be a deterministic reference-resolution operation.
+
+**Rejected option:** Separate cross-reference query template (e.g. reformulating the query as "Rule 11810 buy-in procedure"). Rejected because Pass 2 targets a document already identified by name — the original query filtered by `document_id` retrieves the most relevant chunks from that document for the same question, which is what the LLM needs.
+
+---
+
+## Decision 57 — Section-Aware Chunking Exact Parameters
+
+**Decision:** The exact parameters of the section-aware chunking implementation in `scripts/build_index.py`:
+- Regex pattern: `^\([a-z]\)` with `re.MULTILINE` flag, compiled at module level as `SECTION_PATTERN`
+- False-split lookahead: 60 characters, read from `match.end()` to `match.end() + 60`, with leading whitespace and leading `"(` characters stripped before the uppercase check
+- Minimum chunk length: `MIN_CHUNK_LENGTH = 200` characters — chunks below this threshold merge into the preceding chunk rather than standing alone
+- Chunk overlap: none — adjacent chunks share no text
+- Section header prepended to each chunk body: `"{document_id} Section ({letter}):\n"` — e.g. `"FINRA-11810 Section (b):\n"`
+- Section ID format: `"{document_id}-{letter}-{sequential_n}"` — e.g. `FINRA-11810-b-1`, `FINRA-11810-b-2`; sequential suffix applied to all documents for consistency regardless of whether duplicates occur
+
+**Reasoning:** Decisions 30, 36, and 49 specify the chunking strategy and the false-split filter. The exact parameter values were implementation choices. 60-char lookahead was sufficient to clear leading whitespace and optional quote/parenthesis characters before reaching the first word of any real section header across all six regulatory documents. 200-char minimum was sufficient to absorb genuinely short single-sentence subsections without discarding regulatory text.
+
+**Rejected option:** Using the 200-char minimum alone without `_is_real_section()`. Rejected in Decision 49 — the spurious FINRA-11810 false split produced a 292-char fragment that would have passed the minimum threshold and been indexed as a real section.
 
 ---
 
