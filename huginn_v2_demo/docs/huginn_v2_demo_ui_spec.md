@@ -1,8 +1,8 @@
 # Huginn v2 Demo — UI Specification
 
-**Status:** Design phase complete. Ready for implementation.
+**Status:** Implementation complete.
 **Last updated:** May 2026
-**Location:** `HuginnsMessage/huginn_v2_demo/`
+**Location:** `HuginnsMessage/huginn_v2_demo/` (monorepo subdirectory)
 **Source of truth:** `huginn_v2_demo_design_decisions.md` and `huginn_v2_demo_interface_contract.md` — all visual decisions derive from locked decisions. If anything here conflicts with a locked decision, the locked decision governs.
 
 ---
@@ -11,38 +11,28 @@
 
 The interface contract specifies component boundaries: inputs, outputs, state, and data shapes. This document specifies what the recruiter sees — layout, visual composition, interaction states, and the exact rendering of every element. A builder reading both documents should be able to implement the demo without making a visual judgment call.
 
-This document does not re-specify anything already locked in the interface contract. It fills the gaps the contract explicitly deferred: SVG node geometry, component-level visual composition, shadcn/ui component selection, and element-level rendering detail.
+This document does not re-specify anything already locked in the interface contract. It fills the gaps the contract explicitly deferred: SVG node geometry, component-level visual composition, and element-level rendering detail.
 
 ---
 
-## Implementation Stack Decision
+## Implementation Stack
 
-**Component library:** shadcn/ui, imported from `@/components/ui/...` as available in Claude artifacts.
+**Component library:** No external component library was used. The UI spec originally planned shadcn/ui, but all components — tab strip, cards, badges, buttons, scroll areas — are implemented as lightweight inline React components with direct inline styles and minimal CSS classes defined in the `<style>` block.
 
-**Rationale:** The demo is a portfolio artifact. Generic AI-generated UI is a credibility liability in this context — a recruiter who recognizes the aesthetic loses signal about the candidate's design judgment. shadcn/ui provides polished, opinionated components (tabs, cards, badges, buttons, scroll areas) that read as deliberate choices. Color tokens from the interface contract override shadcn's defaults, so the Swagger-dark theme dominates while the component structure stays professional.
+[Updated post-implementation: The original UI spec specified shadcn/ui (`Tabs`, `Card`, `Badge`, `Button`, `ScrollArea`, `Separator`) imported from CDN. These components were not used. All visual output matches the shadcn-inspired aesthetic specified here; only the underlying implementation differs. See Decision 20 (tab strip), Decision 18 (JSON highlighter), and the implementation notes throughout this document.]
 
-**shadcn components used:**
-
-| Component | Used in |
-|---|---|
-| `Tabs` / `TabsList` / `TabsTrigger` | ScenarioSelector |
-| `Card` / `CardHeader` / `CardContent` | RetrievalPanel chunk cards, ResponsePanel output cards |
-| `Badge` | `retrieved_via` badges, outcome badges, HTTP status badge |
-| `Button` | Execute button in RequestPanel |
-| `ScrollArea` | Reasoning Trace card, Resolution Steps card (capped height) |
-| `Separator` | Between FramingHeader and ScenarioSelector |
-
-**Custom-built (not shadcn):**
+**Custom-built components (all components in the implementation):**
 - StateGraph (SVG)
-- JSON syntax-highlighted block in RequestPanel
+- ScenarioSelector (flex row tab strip with inline styles)
+- RequestPanel with HighlightedJSON (custom character-by-character tokenizer)
+- ChunkCard / RetrievalPanel (inline-styled divs)
+- ResponsePanel (inline-styled divs)
 - POST badge (Swagger-specific chrome)
-- Loading pulse indicator
+- Loading pulse indicator (SVG `<circle>` with CSS `@keyframes`)
 
 ---
 
 ## Typography
-
-The interface contract specifies a system sans-serif stack. This document overrides that for the title only, to create visual hierarchy and avoid the AI-default look.
 
 | Element | Font | Weight | Size |
 |---|---|---|---|
@@ -51,73 +41,76 @@ The interface contract specifies a system sans-serif stack. This document overri
 | Body / prose | System sans-serif | 400 | 0.9rem |
 | JSON / code blocks | `"Fira Code", "SF Mono", monospace` | 400 | 0.8rem |
 | Node labels (SVG) | System sans-serif | 500 | 11px |
-| Badges | System sans-serif | 600 | 0.7rem, uppercase |
+| Badges | System sans-serif | 700 | 0.7rem, uppercase |
 
-**Rationale for IBM Plex Mono on the title:** The demo is about a system that processes structured financial data. A monospace title reads as deliberate and technical without being decorative. It pairs cleanly with the Swagger aesthetic — monospace implies precision. The title is the only element using it; everything else stays in sans-serif to keep the interface readable.
+IBM Plex Mono is loaded via Google Fonts (`wght@600`). It is applied only to the title element via the `.ibm-plex` CSS class.
 
 ---
 
 ## Component 1 — FramingHeader: Visual Composition
 
-**Layout:** Single column. Title line, then framing paragraph, separated by 8px.
+**Layout:** Flex row for the title line (title left, POST badge right). Framing paragraph 8px below. 1px separator line 24px below the paragraph.
 
 **Title line composition:**
 - Demo title `Huginn — Triaging Trade Exceptions` in IBM Plex Mono, 1.5rem, color `--text-primary`.
-- On the same line, flush right: a green `POST` badge (`--swagger-green` background, `--swagger-green-dark` text) followed by `/exceptions` in monospace, color `--text-secondary`.
+- On the same line, flush right: a green `POST` badge (`--swagger-green` background, `--swagger-green-dark` text) followed by `/exceptions` in `.code-font` `--text-secondary`, 0.875rem.
 - The title and badge share a flex row with `justify-content: space-between`.
 
-**Framing paragraph:** Four sentences, `--text-secondary`, 0.9rem. Sits 8px below the title line.
+**Framing paragraph:** `--text-secondary`, 0.9rem, line-height 1.65. Sits 8px below the title line. Three sentences as deployed (see Decision 14 addendum in design_decisions.md).
 
-**Bottom border:** A 1px `--panel-border` line (shadcn `Separator`) sits 24px below the framing paragraph and separates the header from the ScenarioSelector.
+**Bottom border:** A 1px `--panel-border` div (height: 1) sits 24px below the framing paragraph.
 
 ---
 
 ## Component 2 — ScenarioSelector: Visual Composition
 
-**Implementation:** shadcn `Tabs` with `TabsList` rendered horizontally. Five `TabsTrigger` elements, all visible simultaneously — no overflow scroll.
+**Implementation:** A flex row of `<button>` elements inside a wrapping `<div>`. The outer container has `border: '1px solid var(--panel-border)'`, `borderRadius: 6`, `overflow: 'hidden'`. Each button has `flex: 1`.
 
 **Tab trigger composition (each scenario):**
-- **Line 1:** Scenario label text, `--text-primary`, 0.875rem.
-- **Line 2:** Outcome hint in smaller text — `--text-secondary`, 0.75rem, italicized — e.g. *auto-resolved*, *escalated*, *rejected at validation*.
-- Tabs are stacked two-line internally; the `TabsList` has `height: auto` to accommodate.
+- **Line 1:** Scenario label text, `--text-primary`, 0.875rem, `lineHeight: 1.4`.
+- **Line 2:** Outcome hint — `--text-secondary`, 0.75rem, italic — e.g. *auto-resolved*, *escalated*, *rejected at validation*.
+- Padding: `10px 12px` per tab.
 
 **Active tab visual state:**
 - Background: `--panel-bg`.
-- Left border: 2px solid `--swagger-green`.
-- No underline (override shadcn default tab underline indicator).
-- Text on active tab: `--text-primary`.
+- Active indicator: `boxShadow: 'inset 2px 0 0 var(--swagger-green)'` (inset box-shadow, not border-left).
+- Text on active tab: `--text-primary`, font-weight 600.
+- Inactive tabs: transparent background, font-weight 400, `boxShadow: 'inset 2px 0 0 transparent'`.
+
+[Updated post-implementation: The original spec required a `border-left: 2px solid var(--swagger-green)` active indicator and specified overriding the shadcn default underline indicator. The implementation uses an inset box-shadow instead, because the outer container uses `overflow: hidden` which clips any actual border-left. The visual result is identical — a 2px green bar on the left edge of the active tab. See Decision 20 in design_decisions.md.]
+
+**Tab separator:** `borderRight: '1px solid var(--panel-border)'` on all tabs except the last, creating a visible separator line between adjacent tabs.
 
 **Disabled state (during loading):**
-- All tabs: opacity 0.5, `pointer-events: none`.
-- The active tab retains its highlighted border at reduced opacity.
+- All tabs: `opacity: 0.5`, `cursor: 'not-allowed'`.
+- Clicks are ignored (`!disabled && onSelect(s.id)` guard in click handler).
 
-**Section header:** The label `Scenarios` appears above the `TabsList` in section-header style (uppercase, 0.875rem, `--text-secondary`, letter-spacing 0.08em).
+**Section header:** The label `Scenarios` appears above the tab container in section-header style (uppercase, 0.875rem, `--text-secondary`, letter-spacing 0.08em), with `marginBottom: 12`.
 
 ---
 
 ## Component 3 — RequestPanel: Visual Composition
 
-**Outer container:** A panel with `background: --panel-bg`, `border: 1px solid --panel-border`, `border-radius: 6px`, padding 16px.
+**Outer container:** `background: var(--panel-bg)`, `border: 1px solid var(--panel-border)`, `borderRadius: 6`, `padding: 16`.
 
-**Section header row:** Two elements in a flex row, `align-items: center`, `justify-content: space-between`:
+**Section header row:** Flex row, `justify-content: space-between`, `align-items: center`, `marginBottom: 12`:
 - Left: Label `Request Body` in section-header style.
-- Right: HTTP method badge and endpoint. Green `POST` badge (pill shape, `--swagger-green` bg, `--swagger-green-dark` text, 0.7rem bold uppercase, horizontal padding 8px) followed by `/exceptions` in monospace `--text-secondary`.
+- Right: POST badge (same `PostBadge` component as FramingHeader).
 
 **JSON block:**
 - Background: `--swagger-bg` (one shade darker than panel).
-- Border: 1px solid `--panel-border`.
-- Border-radius: 4px.
+- Border: 1px solid `--panel-border`, border-radius 4px.
 - Padding: 12px.
-- Font: Fira Code / SF Mono, 0.8rem, `--text-primary`.
-- Syntax highlighting: property keys in `--swagger-green`, string values in `--text-secondary`, punctuation in `--text-primary`. Implemented via a lightweight custom tokenizer — no external library.
-- Not editable. No cursor change on hover.
+- Font: Fira Code / SF Mono, 0.8rem, line-height 1.5.
+- `userSelect: 'none'`, `cursor: 'default'` — not editable, no text selection.
+- `whiteSpace: 'pre'`, `overflowX: 'auto'`.
+- Syntax highlighting: property keys in `--swagger-green`, string values in `--text-secondary`, punctuation (`{}[],:.`) in `--text-primary`, numbers/booleans/null in `--text-secondary`. Implemented via a custom character-by-character tokenizer (see Decision 18 in design_decisions.md).
 
 **Execute button:**
-- shadcn `Button`, variant `default`, overridden to use `--swagger-green` background, `--swagger-green-dark` text.
-- Label: `Execute` at rest. `Running agent…` when `isLoading` is true.
-- Disabled state when `isLoading`: opacity 0.6, `cursor: not-allowed`.
-- Positioned below the JSON block, flush right within the panel, margin-top 12px.
-- Width: `auto` (fits label text with standard padding).
+- At rest: `background: var(--swagger-green)`, `color: var(--swagger-green-dark)`, `fontWeight: 700`, `fontSize: 0.875rem`, `border: none`, `borderRadius: 4`, `padding: 8px 20px`.
+- `isLoading` state: `background: var(--panel-border)`, `color: var(--text-secondary)`, `cursor: not-allowed`, `opacity: 0.6`.
+- Label: `Execute` at rest. `Running agent…` when `isLoading`.
+- Positioned flush right below the JSON block with `marginTop: 12`.
 
 ---
 
@@ -125,15 +118,15 @@ The interface contract specifies a system sans-serif stack. This document overri
 
 ### Canvas
 
-SVG element: `width="700" height="500"` (revised from the 700×650 canvas in the interface contract — the layout below fits in 500px height).
-Viewbox: `0 0 700 500`.
-Background: transparent (sits on `--swagger-bg` section background).
-Section header `Agent — LangGraph State Machine` renders above the SVG in section-header style.
+SVG element: `width="700" height="500"`, `viewBox="0 0 700 500"`.
+Background: transparent (sits on `#22223a` section container background).
+Section header `Agent — LangGraph State Machine` renders above the SVG in section-header style, with `Running agent…` in `--text-secondary` 0.875rem shown to the right only when `status === 'loading'`.
 
 ### Node Dimensions
 
 All nodes: `width=140`, `height=40`, `rx=6` (rounded rectangle).
-Node label: centered horizontally and vertically within the rect, font-size 11px, font-family system sans-serif, font-weight 500.
+Node rect top-left: `x = cx - 70`, `y = cy - 20`.
+Node label: centered at `(cx, cy + 4)`, `textAnchor="middle"`, `fontSize="11"`, `fontFamily="system-ui, sans-serif"`, `fontWeight="500"`.
 
 ### Node Positions (cx, cy = center of node)
 
@@ -147,165 +140,206 @@ Node label: centered horizontally and vertically within the rect, font-size 11px
 | `escalate` | `escalate` | 310 | 465 |
 | `escalate_fast_exit` | `escalate_fast_exit` | 530 | 175 |
 
-Node `x = cx - 70`, `y = cy - 20` (top-left corner derived from center).
-
 ### Edges
 
-Edges are `<path>` elements with `marker-end` arrowhead. Stroke: `--panel-border` in neutral state, `--swagger-green` on active path segments.
+Edges are `<path>` elements with `marker-end` arrowhead. `strokeWidth: 1.5`. CSS class `edge-path` with `transition: stroke 400ms ease`.
 
-**Arrowhead marker definition** (in SVG `<defs>`):
-```
-<marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-  <path d="M0,0 L0,6 L8,3 z" fill="currentColor"/>
-</marker>
-```
+**Arrowhead markers** (in SVG `<defs>`):
+- `arrow-neutral`: `fill: var(--panel-border)`
+- `arrow-active`: `fill: var(--swagger-green)`
 
-Two marker variants: `arrow-active` (fill `--swagger-green`) and `arrow-neutral` (fill `--panel-border`). Edges switch marker on activation.
+Each edge uses `url(#arrow-active)` or `url(#arrow-neutral)` based on whether the edge is active (determined by `PATH_ACTIVE_EDGES` and `revealedNodes`).
 
-**Edge paths** (all cubic bezier `<path d="M ... C ...">` — exact control points are implementation detail, but the routing rules below are required):
+**Marker geometry:** `markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"`, path `M0,0 L0,6 L8,3 z`.
 
-| Edge | Routing rule |
+[Updated post-implementation: The original spec defined a single arrowhead marker with `refX="6"` and `fill="currentColor"`. The implementation uses two separate markers (`arrow-neutral` and `arrow-active`) with `refX="7"` and explicit fill colors. The visual result is equivalent.]
+
+**Edge paths** (cubic bezier formulas as implemented, where `f` = from node, `t` = to node):
+
+| Edge | Path formula |
 |---|---|
-| `classify → retrieve` | Exits bottom-left of classify; enters top of retrieve. Slight leftward curve. |
-| `classify → escalate_fast_exit` | Exits bottom-right of classify; enters top of escalate_fast_exit. Slight rightward curve. |
-| `retrieve → reason` | Straight vertical line. |
-| `reason → decide` | Straight vertical line. |
-| `decide → auto_resolve` | Exits bottom-left of decide; enters top of auto_resolve. Diagonal left. |
-| `decide → escalate` | Exits bottom-right of decide; enters top of escalate. Slight right curve. |
+| `classify → retrieve` | `M (f.cx-30, f.cy+20) C (f.cx-30, f.cy+65) (t.cx, t.cy-65) (t.cx, t.cy-20)` |
+| `classify → escalate_fast_exit` | `M (f.cx+30, f.cy+20) C (f.cx+30, f.cy+65) (t.cx, t.cy-65) (t.cx, t.cy-20)` |
+| `retrieve → reason` | `M (f.cx, f.cy+20) L (t.cx, t.cy-20)` |
+| `reason → decide` | `M (f.cx, f.cy+20) L (t.cx, t.cy-20)` |
+| `decide → auto_resolve` | `M (f.cx-40, f.cy+20) C (f.cx-40, f.cy+55) (t.cx, t.cy-55) (t.cx, t.cy-20)` |
+| `decide → escalate` | `M (f.cx+20, f.cy+20) C (f.cx+20, f.cy+55) (t.cx, t.cy-55) (t.cx, t.cy-20)` |
 
-Edge stroke-width: 1.5px.
+[Updated post-implementation: The original spec stated "exact control points are implementation detail." The implemented formulas are recorded above. `retrieve → reason` and `reason → decide` are straight lines (`L`), not curves. See Decision 19 in design_decisions.md.]
+
+**Edge routing rules (unchanged from spec):**
+- `classify → retrieve`: exits bottom-left of classify, enters top of retrieve, leftward curve.
+- `classify → escalate_fast_exit`: exits bottom-right of classify, enters top of escalate_fast_exit, rightward curve.
+- `retrieve → reason`, `reason → decide`: straight vertical lines.
+- `decide → auto_resolve`: exits bottom-left of decide, enters top of auto_resolve, diagonal left.
+- `decide → escalate`: exits bottom-right of decide, enters top of escalate, slight right curve.
 
 ### Node Visual States
 
-Three states per node. All transitions: `transition: all 400ms ease`.
+Three states per node. CSS classes `node-rect` and `node-text` each have `transition` properties.
+
+`node-rect` transitions: `fill 400ms ease, stroke 400ms ease, stroke-width 400ms ease, opacity 400ms ease`.
+`node-text` transitions: `fill 400ms ease, opacity 400ms ease`.
 
 **Neutral (pre-run / loading):**
-- `fill`: `--panel-bg`
-- `stroke`: `--panel-border`
+- `fill`: `var(--panel-bg)`
+- `stroke`: `var(--panel-border)`
 - `stroke-width`: 1.5
-- Label color: `--text-secondary`
+- Label color: `var(--text-secondary)`
 - Opacity: 1
 
 **Active:**
-- `fill`: `--node-active-bg` (`#1a4a6b`)
-- `stroke`: `--node-active-border` (`--swagger-green`)
+- `fill`: `var(--node-active-bg)` (`#1a4a6b`)
+- `stroke`: `var(--swagger-green)`
 - `stroke-width`: 2
-- Label color: `--swagger-green`
+- Label color: `var(--swagger-green)`
 - Opacity: 1
 
 **Dimmed:**
-- `fill`: `--panel-bg`
-- `stroke`: `--panel-border`
-- `stroke-width`: 1
-- Label color: `--text-secondary`
-- Opacity: `--node-dimmed-opacity` (0.3)
+- `fill`: `var(--panel-bg)`
+- `stroke`: `var(--panel-border)`
+- `stroke-width`: 1.5 (unchanged from neutral in implementation)
+- Label color: `var(--text-secondary)`
+- Opacity: 0.3
 
-Nodes that are dimmed on fast-exit or rejection paths additionally render a small `skipped` label in 9px `--text-secondary` text, centered 14px below the node rect.
+[Updated post-implementation: The original spec specified `stroke-width: 1` for dimmed nodes. The implementation leaves dimmed nodes at the default `stroke-width: 1.5`. The visual difference at 0.3 opacity is negligible.]
+
+Dimmed nodes on fast-exit and rejection paths additionally render a `skipped` text element: `x={node.cx}`, `y={node.cy + 34}`, `textAnchor="middle"`, `fontSize="9"`, `fill="var(--text-secondary)"`, `opacity={0.3}`.
+
+[Updated post-implementation: The original spec stated `skipped` renders "14px below the node rect." The implementation positions the text at `cy + 34`, which is 14px below the bottom edge of the node rect (`cy + 20`). This matches the spec intention but the coordinate is `cy + 34`, not an offset from rect bottom.]
 
 ### Loading State Visual
 
-When `status === "loading"`: all nodes render in neutral state. A pulsing ring animates around the `classify` node — a second `<circle>` centered on `classify`'s center, `r=36`, `stroke: --swagger-green`, `stroke-width: 1.5`, `fill: none`, animated with a CSS `@keyframes pulse` that cycles opacity 0.6→0→0.6 over 1.2s. Label above SVG: `Running agent…` in `--text-secondary`, 0.875rem.
+When `status === "loading"`: all nodes render in neutral state. A pulsing `<circle>` is rendered with `className="pulse-ring"`, `cx={350}`, `cy={60}`, `r={36}`, `stroke="var(--swagger-green)"`, `strokeWidth="1.5"`, `fill="none"`.
+
+CSS animation `pulse-ring`: `@keyframes pulse-ring { 0%, 100% { opacity: 0.6; } 50% { opacity: 0; } }` over `1.2s ease-in-out infinite`.
 
 ### Animation Sequence
 
-Nodes activate in path order, one per `NODE_STAGGER_MS` (300ms). Implementation constructs an ordered array of node IDs for the active path and steps through them with `setTimeout` chains. Edge segments activate when their destination node activates.
+Nodes activate in path order, one per `NODE_STAGGER_MS` (300ms). After last active node: all non-active nodes dim simultaneously by setting `revealedNodes` to the full set of all node IDs. See Decision 22 in design_decisions.md for `revealedNodes` semantics.
 
-**Standard auto_resolve order:** classify → retrieve → reason → decide → auto_resolve
-**Standard escalate order:** classify → retrieve → reason → decide → escalate
-**Fast-exit order:** classify → escalate_fast_exit (then remaining nodes dim simultaneously)
-**Rejection order:** classify (then all other nodes dim simultaneously)
+**Standard auto_resolve order:** classify → retrieve → reason → decide → auto_resolve (5 nodes, 1.2s total stagger)
+**Standard escalate order:** classify → retrieve → reason → decide → escalate (5 nodes, 1.2s total stagger)
+**Fast-exit order:** classify → escalate_fast_exit (2 nodes, 300ms total stagger)
+**Rejection order:** classify (1 node, 0ms stagger)
+
+Edges activate when their destination node is added to `revealedNodes`.
 
 ---
 
 ## Component 5 — RetrievalPanel: Visual Composition
 
-**Section header:** `Retrieved Regulatory Chunks — Mimir` in section-header style, with a small secondary label `Two-pass retrieval` in `--text-secondary` 0.75rem to the right.
+**Section container:** `background: #22223a`, `borderRadius: 8`, `padding: 24`. Mounted with `marginTop: 32` from the StateGraph section.
 
-**Chunk card** (shadcn `Card`):
-- Background: `--panel-bg`, border: `--panel-border`.
+**Section header row:** Flex row, `justify-content: space-between`, `align-items: center`, `marginBottom: 16`:
+- Left: `Retrieved Regulatory Chunks — Mimir` in section-header style.
+- Right: `Two-pass retrieval` in `--text-secondary`, 0.75rem.
 
-**Card header row** (shadcn `CardHeader`):
-- Left: `document_id — section_id` in bold, `--text-primary`, 0.875rem. Example: `FINRA-11810 — FINRA-11810-b`.
-- Right: `retrieved_via` badge (shadcn `Badge`).
-  - `primary`: neutral badge — background `--panel-border`, text `--text-secondary`, label `PRIMARY`.
-  - `cross_reference`: purple badge — background `--cross-ref-badge` (`#8e44ad`), text white, label `CROSS-REF`.
+**Chunk cards container:** `display: flex, flexDirection: column, gap: 12`.
 
-**Card body** (shadcn `CardContent`):
-- Truncated snippet text: `--text-secondary`, 0.85rem, line-height 1.5.
-- Ellipsis at approximately 300 characters.
-- Below snippet: a `Show full chunk` text button in `--swagger-green`, 0.8rem, no underline by default, underline on hover. On expand, the full chunk replaces the snippet and the button label becomes `Show less`. Each card manages its own expanded state independently.
+**Chunk card:**
+- `background: var(--panel-bg)`, `border: 1px solid var(--panel-border)`, `borderRadius: 6`, `padding: 16`.
+- CSS class `fade-in-card` with `animationDelay: idx * 150ms`.
 
-**Card entry animation:** Cards fade in with `opacity: 0 → 1` over 300ms, staggered 150ms per card.
+**Card header row:** Flex, `justify-content: space-between`, `align-items: center`, `marginBottom: 10`:
+- Left: `document_id — section_id` bold, `--text-primary`, 0.875rem.
+- Right: `retrieved_via` badge.
+  - `primary`: `background: var(--panel-border)`, `color: var(--text-secondary)`, label `PRIMARY`.
+  - `cross_reference`: `background: var(--cross-ref-badge)` (`#8e44ad`), `color: white`, label `CROSS-REF`.
+  - Badge style: `fontSize: 0.7rem`, `fontWeight: 700`, `textTransform: uppercase`, `padding: 2px 8px`, `borderRadius: 4`, `letterSpacing: 0.05em`.
+
+**Card body:**
+- Snippet text: `--text-secondary`, 0.85rem, `lineHeight: 1.5`, `marginBottom: 8`.
+- Truncation: `chunk.text.length > 300 ? chunk.text.slice(0, 300) + '…' : chunk.text`.
+- Expand toggle: `background: none`, `border: none`, `color: var(--swagger-green)`, `fontSize: 0.8rem`, `cursor: pointer`, `padding: 0`. Underline on hover via `onMouseEnter`/`onMouseLeave`. Label `Show full chunk` / `Show less`. Per-card independent state via `useState(false)`.
+
+**Card entry animation:** CSS `@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }` over 300ms, staggered 150ms per card.
 
 ---
 
 ## Component 6 — ResponsePanel: Visual Composition
 
-**Section header:** `Agent Response` in section-header style, with the HTTP status code badge to the right:
-- Standard path: `200 OK` badge in `--swagger-green`.
-- Fast-exit: `200 OK` badge in `--swagger-green` (still a valid response, just with escalation outcome).
-- Rejection: `422 Unprocessable Entity` badge in `--red`.
+**Section container:** `background: #22223a`, `borderRadius: 8`, `padding: 24`. Mounted with `marginTop: 32`.
+
+**Section header row:** Flex, `justify-content: space-between`, `align-items: center`, `marginBottom: 16`:
+- Left: `Agent Response` in section-header style.
+- Right: HTTP status badge.
+  - Standard path: `200 OK` in `--swagger-green` / `--swagger-green-dark`.
+  - Fast-exit: `200 OK` in `--swagger-green` / `--swagger-green-dark`.
+  - Rejection: `422 Unprocessable Entity` in `--red` / white.
 
 ### Standard Path — Three Cards
 
+Cards container: `display: flex, flexDirection: column, gap: 12`.
+
 **Card 1: Confidence Score**
 
-Layout: Two rows.
+Container: `background: var(--panel-bg)`, `border: 1px solid var(--panel-border)`, `borderRadius: 6`, `padding: 16`.
 
-Row 1 (flex, `align-items: center`, `justify-content: space-between`):
-- Left: Outcome label — `AUTO-RESOLVED` in `--swagger-green` bold uppercase 1rem, or `ESCALATED` in `--amber` bold uppercase 1rem.
-- Right: Confidence score value — large numeric display, 2rem, `--text-primary`, monospace. Example: `0.83`.
+Row 1 (flex, `justify-content: space-between`, `align-items: center`, `marginBottom: 8`):
+- Left: Outcome label — `AUTO-RESOLVED` in `var(--swagger-green)` bold uppercase 1rem, or `ESCALATED` in `var(--amber)` bold uppercase 1rem. Driven by `response.outcome`.
+- Right: Confidence score — `response.confidence_score.toFixed(2)` (or raw value if not a number), 2rem, `.code-font`, `--text-primary`.
 
-Row 2 (flex, `align-items: center`, gap 8px):
-- `HIGH` badge (shadcn `Badge`, `--swagger-green` background, dark text) if score ≥ 0.75.
-- `LOW` badge (`--red` background, white text) if score < 0.75.
+Row 2 (flex, `align-items: center`, `gap: 8`):
+- Score badge: `HIGH` (`--swagger-green` bg, `--swagger-green-dark` text) if score ≥ 0.75; `LOW` (`--red` bg, white text) if score < 0.75. `fontSize: 0.7rem`, `fontWeight: 700`, `padding: 2px 8px`, `borderRadius: 4`.
 - Threshold label: `threshold: 0.75` in `--text-secondary`, 0.8rem.
 
 **Card 2: Reasoning Trace**
 
-- Card header label: `Reasoning Trace` bold, `--text-primary`.
-- shadcn `ScrollArea` with `max-height: 300px`.
-- Prose content: `--text-secondary`, 0.875rem, line-height 1.6.
+Container: `background: var(--panel-bg)`, `border: 1px solid var(--panel-border)`, `borderRadius: 6`, `padding: 16`.
+Header: `Reasoning Trace` bold, `--text-primary`, 0.875rem, `marginBottom: 10`.
+Content: `className="scroll-area"` div with `color: var(--text-secondary)`, `fontSize: 0.875rem`, `lineHeight: 1.6`.
 
 **Card 3: Resolution Steps**
 
-- Card header label: `Resolution Steps` bold, `--text-primary`.
-- shadcn `ScrollArea` with `max-height: 300px`.
-- Prose content: `--text-secondary`, 0.875rem, line-height 1.6.
+Container: same as Reasoning Trace card.
+Header: `Resolution Steps` bold.
+Content: same scroll-area style.
+
+**Scroll area implementation:** CSS class `.scroll-area` with `max-height: 300px`, `overflow-y: auto`. Custom scrollbar: `width: 4px`, track `--panel-bg`, thumb `--panel-border`, `borderRadius: 2px`.
 
 ### Fast-Exit Path — One Card
 
-Single card with:
-- Row 1: `ESCALATED` label in `--amber`, bold uppercase 1rem. Right: `Mandatory escalation` in `--text-secondary` 0.85rem.
-- Row 2: `Keyword detected:` label followed by the triggered keyword in `--swagger-green` monospace bold.
-- Row 3: Escalation reason prose in `--text-secondary`, 0.875rem.
+Container: `background: var(--panel-bg)`, `border: 1px solid var(--panel-border)`, `borderRadius: 6`, `padding: 16`.
+
+Row 1 (flex, `justify-content: space-between`, `align-items: center`, `marginBottom: 8`):
+- Left: `ESCALATED` in `--amber`, bold uppercase 1rem.
+- Right: `Mandatory escalation — no model call` in `--text-secondary`, 0.85rem.
+
+Row 2: `Keyword detected:` in `--text-secondary` + triggered keyword in `--swagger-green` bold, `.code-font`, 0.875rem, `marginBottom: 8`.
+
+Row 3: `escalation_reason` prose in `--text-secondary`, 0.875rem, `lineHeight: 1.6`.
 
 ### Rejection Path — One Card
 
-Single card with:
-- Row 1: `422 Unprocessable Entity` badge in `--red`. Right: `Rejected at validation — agent not reached` in `--text-secondary`.
-- Pydantic error list: for each error object in the detail array, render three lines — `loc:` value, `msg:` value, `type:` value — in 0.8rem monospace `--text-secondary`, separated by a thin `--panel-border` line between error objects.
+Container: `background: var(--panel-bg)`, `border: 1px solid var(--panel-border)`, `borderRadius: 6`, `padding: 16`.
+
+Row 1 (flex, `justify-content: space-between`, `align-items: center`, `marginBottom: 12`):
+- Left: `422 Unprocessable Entity` badge in `--red` / white.
+- Right: `Rejected at validation — agent not reached` in `--text-secondary`, 0.85rem.
+
+Error detail list: for each error in `response.error.detail`, render three lines (`loc`, `msg`, `type`) in `--text-secondary`, 0.8rem, `.code-font`. Error objects separated by `borderBottom: '1px solid var(--panel-border)'` and `paddingBottom: 8px` between items (last item has no border).
 
 ---
 
 ## Page-Level Layout
 
-Single column, `max-width: 860px`, centered, `margin: 0 auto`.
+Single column, `maxWidth: 860`, centered, `margin: 0 auto`, `padding: 40px 24px 80px`.
 
 **Vertical rhythm:**
 
 | Section | Top margin |
 |---|---|
-| FramingHeader | 40px from top of page |
-| ScenarioSelector | 32px below FramingHeader separator |
+| FramingHeader | 40px from top (via container padding) |
+| ScenarioSelector | 32px below FramingHeader |
 | RequestPanel | 24px below ScenarioSelector |
 | StateGraph section | 32px below RequestPanel |
 | RetrievalPanel | 32px below StateGraph |
 | ResponsePanel | 32px below RetrievalPanel |
 
-**Page background:** `--swagger-bg` (`#1a1a2e`). Full viewport height.
+**Page background:** `--swagger-bg` (`#1a1a2e`). Full viewport via `min-height: 100vh` on `body`.
 
-**Section background:** StateGraph, RetrievalPanel, and ResponsePanel sections each sit in a container with `background: #22223a` (1 shade lighter than page bg) and `border-radius: 8px`, `padding: 24px`. This creates a subtle panel grouping for the output sections without adding borders.
+**Section background:** StateGraph, RetrievalPanel, and ResponsePanel each sit in a `<div>` with `background: #22223a`, `borderRadius: 8`, `padding: 24`. FramingHeader, ScenarioSelector, and RequestPanel have no section container.
 
 ---
 
@@ -314,7 +348,7 @@ Single column, `max-width: 860px`, centered, `margin: 0 auto`.
 | State | ScenarioSelector | RequestPanel | StateGraph | RetrievalPanel | ResponsePanel |
 |---|---|---|---|---|---|
 | Initial load | Tab 1 active | Payload shown | Hidden | Hidden | Hidden |
-| Loading | Disabled (0.5 opacity) | Button disabled, "Running agent…" | Visible, loading pulse on classify | Hidden | Hidden |
+| Loading (API in flight) | Disabled (0.5 opacity) | Button disabled, "Running agent…" | Visible, loading pulse on classify | Hidden | Hidden |
 | Graph animating | Disabled | Button disabled | Animating | Hidden | Hidden |
 | Standard — retrieval visible | Re-enabled | Button re-enabled | Complete | Fading in | Hidden |
 | Standard — response visible | Re-enabled | Button re-enabled | Complete | Visible | Fading in |
@@ -322,6 +356,8 @@ Single column, `max-width: 860px`, centered, `margin: 0 auto`.
 | Rejection complete | Re-enabled | Button re-enabled | Complete (rejection path) | Hidden | Fading in |
 | Error | Re-enabled | Button re-enabled | Error message shown | Hidden | Hidden |
 | Scenario changed | New tab active | New payload shown | Hidden | Hidden | Hidden |
+
+[Updated post-implementation: The ScenarioSelector and RequestPanel button remain disabled ("Re-enabled" column shows "Disabled") during the "Graph animating" state. `isLoading` is set to `false` only after animation completes. This is consistent with this table but differs from the interface contract's original Step 3b which set `isLoading: false` at API success. See Decision 21 in design_decisions.md.]
 
 ---
 
@@ -335,20 +371,23 @@ The following were open in the interface contract and are now locked:
 | Node canvas size | 700×500px |
 | Node dimensions | 140×40px, rx=6 |
 | All 7 node center coordinates | Specified in Node Positions table above |
-| Edge geometry | Cubic bezier paths, routing rules specified |
-| Component library | shadcn/ui |
+| Edge geometry | Cubic bezier paths — formulas recorded in Edge paths table above |
+| Component library | None — all inline implementations |
 | Title font | IBM Plex Mono |
 | `primary` badge color | `--panel-border` background, `--text-secondary` text |
 | Section containers | `#22223a` background panels with 8px radius |
-| JSON syntax highlight implementation | Lightweight custom tokenizer, no external library |
+| JSON syntax highlight implementation | Lightweight custom character-by-character tokenizer |
 | Confidence score display size | 2rem monospace |
 | Card entry animation | Fade in 300ms, 150ms stagger |
+| Active tab indicator | `boxShadow: inset 2px 0 0 var(--swagger-green)` (not border-left) |
+| Tab separator | `borderRight: 1px solid var(--panel-border)` between tabs |
+| Scroll area implementation | CSS `.scroll-area` class, max-height 300px, custom webkit scrollbar |
+| Card gap within sections | 12px flex gap |
 
 ---
 
 ## What This Document Does Not Specify
 
-- Exact SVG bezier control point values — these are geometry to be calculated during implementation from the node center coordinates specified above.
 - CSS class naming conventions.
 - Internal variable naming.
-- The exact 300-character truncation implementation (this is a guideline, not a hard boundary).
+- The exact 300-character truncation implementation (implemented as `text.length > 300 ? text.slice(0, 300) + '…' : text`).

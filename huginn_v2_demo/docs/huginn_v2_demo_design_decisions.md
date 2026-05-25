@@ -1,9 +1,9 @@
 # Huginn v2 Demo — Locked Design Decisions
 
-**Status:** Design phase complete. Ready for interface contract.
+**Status:** Implementation complete. Phase 7 feedback loop complete.
 **Last updated:** May 2026
-**Location:** `HuginnsMessage/huginn_v2_demo/`
-**Relationship:** Standalone static web application. Referenced from Huginn v2 README via a single link. Does not live inside the `huginn_v2/` repository. Its own repository is `HuginnsMessage/huginn_v2_demo/`.
+**Location:** `HuginnsMessage/huginn_v2_demo/` (monorepo subdirectory — see Decision 16 addendum)
+**Relationship:** Standalone static web application. Referenced from Huginn v2 README via a single link. Does not live inside the `huginn_v2/` repository. The demo lives as a subdirectory of the `HuginnsMessage/` monorepo.
 
 ---
 
@@ -22,6 +22,8 @@ The Huginn v2 demo is an interactive single-page web application that allows rec
 **Rejected option:** Recruiter pastes their own key. Rejected because it requires the recruiter to have an Anthropic account, locate their API key, and complete a setup step before seeing any output. A meaningful percentage of non-technical recruiters will not complete this step.
 
 **Rejected option:** Server-side proxy to hide the key. Rejected because it introduces backend infrastructure for a portfolio demo with no meaningful security requirement — the audience is recruiters, not adversaries, and the complexity cost is not justified.
+
+**Implementation note [May 2026]:** This decision was reversed during implementation. A Cloudflare Worker proxy (`worker/index.js`) was built and deployed to inject the API key server-side. The key does not appear anywhere in `index.html`. The `WORKER_URL` constant in `index.html` points to the deployed Worker at `https://huginn-demo.richard-lin2025.workers.dev`. The security reasoning in the original decision ("the complexity cost is not justified") was overridden by a practical consideration: GitHub Pages serves the HTML publicly, and an embedded key in a public repository is automatically flagged by secret-scanning tools and revoked by Anthropic. The Worker proxy resolves this without meaningful additional complexity. The key lives in the Worker's environment variable binding `ANTHROPIC_API_KEY`, not in any committed file.
 
 ---
 
@@ -185,6 +187,8 @@ The simulation disclosure must name three things: (1) that the responses are gen
 
 **Rejected option:** Prominent disclaimer framing ("Note: this demo does not run the real backend"). Rejected because disclaimer language frames the simulation as a limitation rather than a deliberate design choice. The framing copy states it as fact, not apology.
 
+**Implementation note [May 2026]:** The sentence referencing a previous AWS deployment — `"A previous version was deployed on AWS; this demo uses a live Claude API call to simulate Huginn's reasoning pipeline..."` — was removed from the final framing copy. The deployed framing paragraph reads: `"Huginn is a LangGraph-based AI agent that classifies financial trade exceptions and decides whether to auto-resolve them or escalate to a human reviewer — built design-first using a structured human-AI collaboration methodology. This demo uses a live Claude API call to simulate Huginn's reasoning pipeline, with architecture, execution paths, and regulatory document references accurate to the real system. Select a scenario below and click Execute to watch the agent work."` The AWS reference was judged to add backstory clutter rather than signal. The simulation disclosure and methodology signal are preserved.
+
 ---
 
 ## Decision 15 — Swagger Fidelity
@@ -211,6 +215,8 @@ A prior version of Huginn was deployed on AWS with a production-grade hosted bac
 
 **Rejected option:** Hosted Huginn v2 backend on a persistent server. Rejected because free-tier hosting introduces cold-start latency that degrades recruiter experience, and paid hosting is disproportionate for a portfolio project. The simulation approach preserves every signal a recruiter can meaningfully evaluate.
 
+**Implementation note [May 2026]:** The demo was not deployed as a standalone repository. It lives as a subdirectory (`huginn_v2_demo/`) inside the existing `HuginnsMessage/` monorepo alongside `huginn_v1/` and `huginn_v2/`. GitHub Pages is configured at the monorepo level via a GitHub Actions workflow (`.github/workflows/deploy-demo.yml`) that deploys the `huginn_v2_demo/` subdirectory on pushes to `master` that touch `huginn_v2_demo/**`. The live URL is `https://rlin25.github.io/HuginnsMessage/`, not `https://huginnsmessage.github.io/huginn_v2_demo/` as originally planned. The design documents were placed in a `docs/` subdirectory (`huginn_v2_demo/docs/`) rather than at the repo root as shown in the masterplan structure diagram.
+
 ---
 
 ## Decision 17 — Implementation Environment
@@ -220,6 +226,81 @@ A prior version of Huginn was deployed on AWS with a production-grade hosted bac
 **Reasoning:** Consistent with the project's methodology signal. Using Claude Code on a locked spec demonstrates that the design artifacts are complete and implementation-ready, not aspirational. A single HTML file with no build step is the simplest possible delivery format for a self-hosted static demo — no Node.js, no bundler, no deployment pipeline.
 
 **Rejected option:** Manual implementation without Claude Code. Rejected because it bypasses the methodology signal the project is designed to demonstrate.
+
+---
+
+## Decision 18 — JSON Syntax Highlighter Implementation
+
+**Decision:** The JSON syntax highlighter is a lightweight custom character-by-character tokenizer written directly in the `index.html` script block. No external library is used.
+
+**Reasoning:** The UI spec locked the requirement for syntax highlighting of property keys and values but deferred the implementation approach. A full tokenizer library (e.g. Prism.js) is unnecessary for a single static JSON block with a predictable structure. The custom tokenizer is approximately 40 lines and handles the three cases required: property keys (colored `--swagger-green`), string values (colored `--text-secondary`), and structural punctuation (`{}[],:.`) colored `--text-primary`. Numbers, booleans, and null are tokenized as a catch-all and colored `--text-secondary`.
+
+**Key implementation detail:** Property key detection works by scanning past the closing `"` and any whitespace to check whether the next non-whitespace character is `:`. If so, the quoted string is a property key; otherwise it is a value.
+
+**Rejected option:** Prism.js or similar library via CDN. Rejected because it introduces a CDN dependency and significant bundle weight for functionality achievable in a small custom implementation.
+
+---
+
+## Decision 19 — SVG Edge Geometry
+
+**Decision:** Edges are implemented as cubic bezier `<path>` elements with the following control point formulas, derived from node center coordinates at implementation time:
+
+- `classify → retrieve`: `M (cx-30, cy+20) C (cx-30, cy+65) (t.cx, t.cy-65) (t.cx, t.cy-20)` — exits bottom-left of classify, slight leftward curve to top of retrieve.
+- `classify → escalate_fast_exit`: `M (cx+30, cy+20) C (cx+30, cy+65) (t.cx, t.cy-65) (t.cx, t.cy-20)` — exits bottom-right of classify, rightward curve to top of escalate_fast_exit.
+- `retrieve → reason`: `M (f.cx, f.cy+20) L (t.cx, t.cy-20)` — straight vertical line.
+- `reason → decide`: `M (f.cx, f.cy+20) L (t.cx, t.cy-20)` — straight vertical line.
+- `decide → auto_resolve`: `M (cx-40, cy+20) C (cx-40, cy+55) (t.cx, t.cy-55) (t.cx, t.cy-20)` — exits bottom-left of decide, diagonal left curve to top of auto_resolve.
+- `decide → escalate`: `M (cx+20, cy+20) C (cx+20, cy+55) (t.cx, t.cy-55) (t.cx, t.cy-20)` — exits bottom-right of decide, slight rightward curve to top of escalate.
+
+**Reasoning:** The UI spec specified routing rules and stated that control point values were implementation details. These formulas produce clean, non-overlapping curves that clearly indicate directionality within the 700×500 canvas.
+
+---
+
+## Decision 20 — ScenarioSelector Active Tab Indicator
+
+**Decision:** The active tab indicator is implemented as `boxShadow: 'inset 2px 0 0 var(--swagger-green)'` rather than a `border-left` property.
+
+**Reasoning:** The tab strip uses `overflow: hidden` on the wrapping container, which clips any `border-left` added to a tab element (because the tab itself has no overflow). An inset box-shadow achieves the visual equivalent — a 2px left-side green bar — without being clipped. Adjacent tabs are separated by `borderRight: '1px solid var(--panel-border)'` on all tabs except the last. The outer container has `border: '1px solid var(--panel-border)'` and `borderRadius: 6`.
+
+---
+
+## Decision 21 — isLoading Timing
+
+**Decision:** `isLoading` is set to `false` after the node animation completes, not at the moment of API response receipt.
+
+**Reasoning:** The interface contract (Step 3b) specified `isLoading: false` at API success. The UI spec Interaction States Summary table showed the scenario selector and Execute button remaining disabled during the "Graph animating" state. These were contradictory. The implementation follows the UI spec table: `isLoading` stays `true` through the entire animation sequence and is set to `false` only after the last active node has animated and `NODE_TRANSITION_MS` (400ms) has elapsed. This prevents the recruiter from launching a second API call while the first run's animation is still in progress.
+
+---
+
+## Decision 22 — revealedNodes State Semantics
+
+**Decision:** The animation state is tracked via a `revealedNodes: Set<string>` React state variable. Nodes are added to this set one by one as their stagger timer fires. After the last active node's timer, `revealedNodes` is set to the full set of all node IDs — this triggers the dimming of non-active nodes simultaneously.
+
+**Reasoning:** The UI spec's animation sequence required two distinct phases: (1) active nodes appearing one by one, and (2) all remaining nodes dimming simultaneously at the end. A `revealedNodes` set naturally implements this: `getNodeState()` returns `neutral` for nodes not yet in the set, `active` for nodes in the set that are on the active path, and `dimmed` for nodes in the set that are not on the active path. Setting `revealedNodes = allNodeIds` at the end causes all non-active nodes to transition from neutral to dimmed in a single render.
+
+---
+
+## Decision 23 — Timer Cleanup
+
+**Decision:** All `setTimeout` calls are registered through a `later()` wrapper that stores their IDs in a `useRef` array. A `clearTimers()` function cancels all pending timers by calling `clearTimeout` on each stored ID.
+
+**Reasoning:** Without cleanup, timers from a previous run can fire after the user has selected a new scenario or started a new run, causing state mutations that produce visual glitches (e.g., nodes activating for a scenario that is no longer selected). `clearTimers()` is called at the start of every `handleExecute()` call and inside `resetOutput()` (which fires on scenario selection). This guarantees that no timer from a prior run can outlive its run.
+
+---
+
+## Decision 24 — Cloudflare Worker Format
+
+**Decision:** The Cloudflare Worker is implemented using the service worker `addEventListener('fetch', ...)` format, not the ES module `export default { fetch }` format specified in the masterplan.
+
+**Reasoning:** The masterplan's ES module example used `env.ANTHROPIC_API_KEY` to access the environment variable binding. In the deployed Worker, the API key binding is accessed as a global variable `ANTHROPIC_API_KEY` (not `env.ANTHROPIC_API_KEY`), which is the behavior of the service worker format. Both formats are supported by Cloudflare Workers; the service worker format was used because it matched the runtime behavior observed during deployment. Functionally the Worker is identical: OPTIONS requests return CORS headers; POST requests are forwarded to `https://api.anthropic.com/v1/messages` with the injected API key and CORS headers appended to the response.
+
+---
+
+## Decision 25 — GitHub Actions Deployment Workflow
+
+**Decision:** Deployment to GitHub Pages is automated via a GitHub Actions workflow at `.github/workflows/deploy-demo.yml`. The workflow triggers on pushes to `master` that match the path filter `huginn_v2_demo/**`, and on `workflow_dispatch`. It uses `actions/checkout@v4`, `actions/configure-pages@v5`, `actions/upload-pages-artifact@v3`, and `actions/deploy-pages@v4`. The entire `huginn_v2_demo` directory is uploaded as the Pages artifact.
+
+**Reasoning:** A path-filtered workflow means unrelated changes to `huginn_v1/` or `huginn_v2/` do not trigger a demo deployment. Uploading the full `huginn_v2_demo/` directory means the design documents in `docs/` are also served at the Pages URL, which is acceptable for a portfolio artifact where source transparency is valued. The workflow requires no Node.js or build steps — the artifact is the directory as-is.
 
 ---
 
