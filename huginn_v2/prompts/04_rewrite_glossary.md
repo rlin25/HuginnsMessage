@@ -8,7 +8,7 @@
 
 ## Prompt
 
-Rewrite `glossary.md` from scratch. The original was written during the design phase and does not reflect the implemented codebase. The new glossary serves two audiences: recruiters (technical and non-technical) reading the repository, and the developer returning to the codebase after time away.
+Rewrite `docs/huginn_v2_glossary.md` from scratch. The original was written during the design phase and does not reflect the implemented codebase. The new glossary serves two audiences: recruiters (technical and non-technical) reading the repository, and the developer returning to the codebase after time away.
 
 Organize the glossary into three parts:
 
@@ -64,6 +64,6 @@ For each file, define only the terms that are non-obvious to a developer reading
 - Do not carry over definitions from the original glossary without verifying them against the implementation.
 - Do not define terms that are fully explained in the README — reference the README instead.
 - Write Part 1 for a non-technical reader. Write Parts 2 and 3 for a technical reader.
-- Output the full glossary as a single `glossary.md` file.
+- Output the full glossary as a single `docs/huginn_v2_glossary.md` file.
 
-Reference documents: `architecture.md`, `design_decisions.md`, `interface_contract.md`.
+Reference documents: `docs/huginn_v2_masterplan.md`, `docs/huginn_v2_design_decisions.md`, `docs/huginn_v2_interface_contract.md`.

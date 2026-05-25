@@ -16,7 +16,7 @@ Each walkthrough file should cover:
 2. **Relationships** — what it imports from, what imports it, and what it deliberately does not touch.
 3. **Decision rationale** — for non-obvious implementation choices, explain why the code is written that way rather than what it is doing. Reference design decision numbers where relevant.
 4. **What it does not do** — responsibilities explicitly excluded from this file and where those responsibilities live instead.
-5. **V2 touch points** — which parts of this file are intentionally minimal in v1 and what will change.
+5. **V3 touch points** — which parts of this file are intentionally minimal in v2 and what will change.
 
 Do not explain syntax. Do not describe what lines of code do — describe why they exist. If a section of code is self-explanatory, skip it.
 
@@ -33,12 +33,12 @@ Source files to cover:
 - `api/main.py`
 - `scripts/build_index.py`
 
-Reference documents available in the project root: `interface_contract.md`, `design_decisions.md`, `architecture.md`.
+Reference documents: `docs/huginn_v2_interface_contract.md`, `docs/huginn_v2_design_decisions.md`, `docs/huginn_v2_masterplan.md`.
 
 ---
 
 ## Notes
 
-- Run this after Subplan 6 is complete — the walkthrough is only useful once the source files exist.
+- Run this after all subplans are complete and the Phase 7 feedback loop is done — the walkthrough is only useful once the source files and design documents are fully reconciled.
 - The goal is decision rationale, not documentation. If a walkthrough file reads like a comment block, it's too shallow.
 - Update the source file list and reference document names when reusing on a new project.
