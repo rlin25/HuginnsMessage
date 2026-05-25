@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Huginn — Triaging Trade Exceptions</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@600&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      --swagger-green: #49cc90;
+      --swagger-green-dark: #1a7a4a;
+      --swagger-bg: #1a1a2e;
+      --panel-bg: #2d2d44;
+      --panel-border: #3d3d5c;
+      --text-primary: #f0f0f0;
+      --text-secondary: #a0a0b8;
+      --red: #e74c3c;
+      --amber: #f39c12;
+      --node-active-bg: #1a4a6b;
+      --node-active-border: #49cc90;
+      --cross-ref-badge: #8e44ad;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background-color: var(--swagger-bg);
+      color: var(--text-primary);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      min-height: 100vh;
+    }
+
+    .ibm-plex { font-family: "IBM Plex Mono", monospace; }
+
+    .section-header {
+      font-size: 0.875rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-secondary);
+    }
+
+    .code-font { font-family: "Fira Code", "SF Mono", monospace; }
+
+    @keyframes pulse-ring {
+      0%, 100% { opacity: 0.6; }
+      50%       { opacity: 0; }
+    }
+
+    @keyframes fade-in {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+
+    .pulse-ring { animation: pulse-ring 1.2s ease-in-out infinite; }
+
+    .fade-in-card {
+      opacity: 0;
+      animation: fade-in 300ms ease forwards;
+    }
+
+    .node-rect  { transition: fill 400ms ease, stroke 400ms ease, stroke-width 400ms ease, opacity 400ms ease; }
+    .node-text  { transition: fill 400ms ease, opacity 400ms ease; pointer-events: none; }
+    .edge-path  { transition: stroke 400ms ease; }
+
+    .scroll-area {
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    .scroll-area::-webkit-scrollbar { width: 4px; }
+    .scroll-area::-webkit-scrollbar-track { background: var(--panel-bg); }
+    .scroll-area::-webkit-scrollbar-thumb { background: var(--panel-border); border-radius: 2px; }
+
+    svg { max-width: 100%; }
+
+    button { font-family: inherit; }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useRef, useCallback } = React;
+
+// ─── Configuration ────────────────────────────────────────────────────────────
+
+const WORKER_URL = 'https://huginn-demo.richard-lin2025.workers.dev';
+
+const NODE_TRANSITION_MS   = 400;
+const NODE_STAGGER_MS      = 300;
+const POST_GRAPH_DELAY_MS  = 1500;
+const POST_RETRIEVAL_DELAY_MS = 1500;
+
+// ─── Static data ──────────────────────────────────────────────────────────────
+
+const SCENARIOS = [
+  {
+    id: "price_mismatch",
+    label: "Price mismatch — AAPL, 500 shares",
+    outcome_hint: "auto-resolved",
+    path: "standard",
+    payload: {
+      exception_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      trade_id: "TRD-2026-00142",
+      type: "settlement_mismatch",
+      sub_type: "price_mismatch",
+      description: "Counterparty confirms 142.50, we show 141.75 for 500 AAPL shares settled 2026-05-20. Discrepancy of $375.00 total. Counterparty has not responded to our query.",
+      timestamp: "2026-05-20T09:30:00",
+      severity: "high"
+    }
+  },
+  {
+    id: "quantity_mismatch",
+    label: "Quantity mismatch — TSLA, 200 shares",
+    outcome_hint: "escalated",
+    path: "standard",
+    payload: {
+      exception_id: "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+      trade_id: "TRD-2026-00198",
+      type: "settlement_mismatch",
+      sub_type: "quantity_mismatch",
+      description: "We delivered 200 TSLA shares, counterparty confirms receipt of 150 only. Settlement date 2026-05-21. Shortfall of 50 shares unresolved after two business days.",
+      timestamp: "2026-05-21T10:15:00",
+      severity: "high"
+    }
+  },
+  {
+    id: "wrong_settlement_date",
+    label: "Wrong settlement date — MSFT bond",
+    outcome_hint: "auto-resolved",
+    path: "standard",
+    payload: {
+      exception_id: "c3d4e5f6-a7b8-9012-cdef-123456789012",
+      trade_id: "TRD-2026-00231",
+      type: "settlement_mismatch",
+      sub_type: "wrong_settlement_date",
+      description: "MSFT 3.75% bond due 2031. We show settlement date 2026-05-22, counterparty confirms 2026-05-23. T+1 affirmation was submitted same-day per SEC Rule 15c6-2.",
+      timestamp: "2026-05-22T08:45:00",
+      severity: "medium"
+    }
+  },
+  {
+    id: "fast_exit",
+    label: "Buy-in notice received",
+    outcome_hint: "escalated",
+    path: "fast_exit",
+    payload: {
+      exception_id: "d4e5f6a7-b8c9-0123-defa-234567890123",
+      trade_id: "TRD-2026-00089",
+      type: "settlement_mismatch",
+      sub_type: "price_mismatch",
+      description: "Counterparty has issued a formal buy-in notice for 300 shares of GE undelivered as of 2026-05-19. Buy-in execution scheduled for 2026-05-22 per FINRA Rule 11810.",
+      timestamp: "2026-05-20T14:00:00",
+      severity: "high"
+    }
+  },
+  {
+    id: "invalid_type",
+    label: "Invalid exception type",
+    outcome_hint: "rejected at validation",
+    path: "rejection",
+    payload: {
+      exception_id: "e5f6a7b8-c9d0-1234-efab-345678901234",
+      trade_id: "TRD-2026-00310",
+      type: "trade_reporting_violation",
+      sub_type: "late_report",
+      description: "FINRA Rule 7270 late reporting violation. Trade executed 2026-05-20, reported 2026-05-22.",
+      timestamp: "2026-05-22T11:00:00",
+      severity: "medium"
+    }
+  }
+];
+
+// Node positions from UI spec (700×500 canvas)
+const NODES = [
+  { id: "classify",           label: "classify",           cx: 350, cy: 60  },
+  { id: "retrieve",           label: "retrieve",           cx: 200, cy: 175 },
+  { id: "reason",             label: "reason",             cx: 200, cy: 280 },
+  { id: "decide",             label: "decide",             cx: 200, cy: 385 },
+  { id: "auto_resolve",       label: "auto_resolve",       cx: 90,  cy: 465 },
+  { id: "escalate",           label: "escalate",           cx: 310, cy: 465 },
+  { id: "escalate_fast_exit", label: "escalate_fast_exit", cx: 530, cy: 175 },
+];
+
+const EDGES = [
+  { from: "classify",  to: "retrieve"           },
+  { from: "classify",  to: "escalate_fast_exit" },
+  { from: "retrieve",  to: "reason"             },
+  { from: "reason",    to: "decide"             },
+  { from: "decide",    to: "auto_resolve"       },
+  { from: "decide",    to: "escalate"           },
+];
+
+const PATH_ACTIVE_NODES = {
+  standard_auto_resolve: ["classify", "retrieve", "reason", "decide", "auto_resolve"],
+  standard_escalate:     ["classify", "retrieve", "reason", "decide", "escalate"],
+  fast_exit:             ["classify", "escalate_fast_exit"],
+  rejection:             ["classify"],
+};
+
+const PATH_ACTIVE_EDGES = {
+  standard_auto_resolve: [
+    { from: "classify", to: "retrieve" },
+    { from: "retrieve", to: "reason"   },
+    { from: "reason",   to: "decide"   },
+    { from: "decide",   to: "auto_resolve" },
+  ],
+  standard_escalate: [
+    { from: "classify", to: "retrieve" },
+    { from: "retrieve", to: "reason"   },
+    { from: "reason",   to: "decide"   },
+    { from: "decide",   to: "escalate" },
+  ],
+  fast_exit:  [{ from: "classify", to: "escalate_fast_exit" }],
+  rejection:  [],
+};
+
+const SYSTEM_PROMPT = `You are simulating the Huginn v2 trade exception triage agent for a portfolio demo.
+Huginn is a LangGraph-based AI agent that classifies financial trade exceptions,
+retrieves relevant regulatory document chunks from a Chroma vector store (Mimir),
+and reasons over them using a four-factor regulatory rubric to produce a confidence
+score, reasoning trace, and resolution steps.
+
+You will receive a trade exception payload. Respond ONLY with a JSON object.
+No preamble. No explanation outside the JSON.
+
+For standard path exceptions, respond with:
+{
+  "path": "standard",
+  "retrieved_chunks": [
+    {
+      "document_id": "<e.g. FINRA-11810>",
+      "section_id": "<e.g. FINRA-11810-b>",
+      "retrieved_via": "<primary or cross_reference>",
+      "text": "<full text of the retrieved regulatory chunk — minimum 3 sentences>"
+    }
+  ],
+  "confidence_score": <float 0.0–1.0>,
+  "outcome": "<auto_resolve or escalate>",
+  "reasoning_trace": "<step-by-step explanation referencing the retrieved chunks>",
+  "resolution_steps": "<specific steps to resolve this exception>"
+}
+
+For fast-exit exceptions (description contains: sanctions, AML, regulatory hold, buy-in, sell-out):
+{
+  "path": "fast_exit",
+  "triggered_keyword": "<the keyword detected>",
+  "outcome": "escalate",
+  "escalation_reason": "mandatory escalation keyword detected: <keyword>"
+}
+
+For invalid type exceptions (type is not settlement_mismatch):
+{
+  "path": "rejection",
+  "error": {
+    "status": 422,
+    "detail": [
+      {
+        "loc": ["body", "type"],
+        "msg": "value is not a valid settlement_mismatch type",
+        "type": "value_error.enum"
+      }
+    ]
+  }
+}
+
+The confidence threshold is 0.75. auto_resolve when score >= 0.75, escalate when < 0.75.
+Regulatory documents in scope: SEC-15c6-1, SEC-15c6-2, FINRA-11100, FINRA-11710,
+FINRA-11810, FINRA-11820. Always retrieve 2–5 chunks across 1–3 documents for standard
+path exceptions. Include at least one cross_reference chunk where a rule references another.`;
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function nodeById(id) {
+  return NODES.find(n => n.id === id);
+}
+
+function getNodeState(nodeId, activePath, revealedNodes) {
+  if (!activePath || revealedNodes.size === 0) return 'neutral';
+  const activeList = PATH_ACTIVE_NODES[activePath] || [];
+  if (!revealedNodes.has(nodeId)) return 'neutral';
+  return activeList.includes(nodeId) ? 'active' : 'dimmed';
+}
+
+function isEdgeActive(edge, activePath, revealedNodes) {
+  if (!activePath) return false;
+  const activeEdges = PATH_ACTIVE_EDGES[activePath] || [];
+  return activeEdges.some(e => e.from === edge.from && e.to === edge.to)
+    && revealedNodes.has(edge.to);
+}
+
+function deriveActivePath(parsed) {
+  if (parsed.path === 'fast_exit')  return 'fast_exit';
+  if (parsed.path === 'rejection')  return 'rejection';
+  return parsed.outcome === 'auto_resolve' ? 'standard_auto_resolve' : 'standard_escalate';
+}
+
+async function callHuginn(scenario) {
+  const res = await fetch(WORKER_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1000,
+      system: SYSTEM_PROMPT,
+      messages: [{ role: 'user', content: JSON.stringify({ exception: scenario.payload }) }]
+    })
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json();
+  const text = data.content[0].text;
+  const clean = text.replace(/^```json\n?/, '').replace(/\n?```$/, '').trim();
+  return JSON.parse(clean);
+}
+
+// Cubic bezier edge paths based on UI spec routing rules
+function edgePath(fromId, toId) {
+  const f = nodeById(fromId);
+  const t = nodeById(toId);
+  if (!f || !t) return '';
+
+  if (fromId === 'classify' && toId === 'retrieve') {
+    return `M ${f.cx - 30},${f.cy + 20} C ${f.cx - 30},${f.cy + 65} ${t.cx},${t.cy - 65} ${t.cx},${t.cy - 20}`;
+  }
+  if (fromId === 'classify' && toId === 'escalate_fast_exit') {
+    return `M ${f.cx + 30},${f.cy + 20} C ${f.cx + 30},${f.cy + 65} ${t.cx},${t.cy - 65} ${t.cx},${t.cy - 20}`;
+  }
+  if (fromId === 'retrieve' && toId === 'reason') {
+    return `M ${f.cx},${f.cy + 20} L ${t.cx},${t.cy - 20}`;
+  }
+  if (fromId === 'reason' && toId === 'decide') {
+    return `M ${f.cx},${f.cy + 20} L ${t.cx},${t.cy - 20}`;
+  }
+  if (fromId === 'decide' && toId === 'auto_resolve') {
+    return `M ${f.cx - 40},${f.cy + 20} C ${f.cx - 40},${f.cy + 55} ${t.cx},${t.cy - 55} ${t.cx},${t.cy - 20}`;
+  }
+  if (fromId === 'decide' && toId === 'escalate') {
+    return `M ${f.cx + 20},${f.cy + 20} C ${f.cx + 20},${f.cy + 55} ${t.cx},${t.cy - 55} ${t.cx},${t.cy - 20}`;
+  }
+  return `M ${f.cx},${f.cy + 20} L ${t.cx},${t.cy - 20}`;
+}
+
+// Lightweight JSON syntax highlighter — no external library
+function HighlightedJSON({ obj }) {
+  const json = JSON.stringify(obj, null, 2);
+  const tokens = [];
+  let i = 0;
+  let key = 0;
+
+  while (i < json.length) {
+    if (json[i] === '"') {
+      let j = i + 1;
+      while (j < json.length) {
+        if (json[j] === '\\') { j += 2; continue; }
+        if (json[j] === '"')  { j++; break; }
+        j++;
+      }
+      const str = json.slice(i, j);
+      // peek past whitespace to find ':'
+      let k = j;
+      while (k < json.length && (json[k] === ' ' || json[k] === '\n')) k++;
+      const isPropertyKey = json[k] === ':';
+      tokens.push(
+        <span key={key++} style={{ color: isPropertyKey ? 'var(--swagger-green)' : 'var(--text-secondary)' }}>
+          {str}
+        </span>
+      );
+      i = j;
+    } else if ('\n'.includes(json[i])) {
+      tokens.push('\n');
+      i++;
+    } else if (json[i] === ' ') {
+      let spaces = '';
+      while (i < json.length && json[i] === ' ') { spaces += ' '; i++; }
+      tokens.push(spaces);
+    } else if ('{}[],:.'.includes(json[i])) {
+      tokens.push(
+        <span key={key++} style={{ color: 'var(--text-primary)' }}>{json[i]}</span>
+      );
+      i++;
+    } else {
+      // number / boolean / null
+      let j = i;
+      while (j < json.length && !',[]\n }'.includes(json[j])) j++;
+      tokens.push(
+        <span key={key++} style={{ color: 'var(--text-secondary)' }}>{json.slice(i, j)}</span>
+      );
+      i = j;
+    }
+  }
+
+  return <>{tokens}</>;
+}
+
+// ─── UI Primitives ────────────────────────────────────────────────────────────
+
+function PostBadge() {
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+      <span style={{
+        background: 'var(--swagger-green)', color: 'var(--swagger-green-dark)',
+        fontWeight: 700, fontSize: '0.7rem', textTransform: 'uppercase',
+        padding: '2px 8px', borderRadius: 4, letterSpacing: '0.05em',
+      }}>POST</span>
+      <span className="code-font" style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
+        /exceptions
+      </span>
+    </span>
+  );
+}
+
+// ─── Components ───────────────────────────────────────────────────────────────
+
+function FramingHeader() {
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h1 className="ibm-plex" style={{ fontSize: '1.5rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+          Huginn — Triaging Trade Exceptions
+        </h1>
+        <PostBadge />
+      </div>
+      <p style={{ marginTop: 8, color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.65 }}>
+        Huginn is a LangGraph-based AI agent that classifies financial trade exceptions and decides
+        whether to auto-resolve them or escalate to a human reviewer — built design-first using a
+        structured human-AI collaboration methodology. A previous version was deployed on AWS; this
+        demo uses a live Claude API call to simulate Huginn's reasoning pipeline, with architecture,
+        execution paths, and regulatory document references accurate to the real system. Select a
+        scenario below and click Execute to watch the agent work.
+      </p>
+      <div style={{ height: 1, background: 'var(--panel-border)', marginTop: 24 }} />
+    </div>
+  );
+}
+
+function ScenarioSelector({ selectedId, onSelect, disabled }) {
+  return (
+    <div>
+      <div className="section-header" style={{ marginBottom: 12 }}>Scenarios</div>
+      <div style={{
+        display: 'flex',
+        border: '1px solid var(--panel-border)',
+        borderRadius: 6,
+        overflow: 'hidden',
+      }}>
+        {SCENARIOS.map((s, i) => {
+          const active = s.id === selectedId;
+          return (
+            <button
+              key={s.id}
+              onClick={() => !disabled && onSelect(s.id)}
+              style={{
+                flex: 1,
+                padding: '10px 12px',
+                background: active ? 'var(--panel-bg)' : 'transparent',
+                boxShadow: active ? 'inset 2px 0 0 var(--swagger-green)' : 'inset 2px 0 0 transparent',
+                border: 'none',
+                borderRight: i < SCENARIOS.length - 1 ? '1px solid var(--panel-border)' : 'none',
+                cursor: disabled ? 'not-allowed' : 'pointer',
+                opacity: disabled ? 0.5 : 1,
+                textAlign: 'left',
+                transition: 'background 200ms, box-shadow 200ms, opacity 200ms',
+              }}
+            >
+              <div style={{ fontSize: '0.875rem', fontWeight: active ? 600 : 400, color: 'var(--text-primary)', lineHeight: 1.4 }}>
+                {s.label}
+              </div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontStyle: 'italic', marginTop: 2 }}>
+                {s.outcome_hint}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function RequestPanel({ scenario, onExecute, isLoading }) {
+  return (
+    <div style={{
+      background: 'var(--panel-bg)',
+      border: '1px solid var(--panel-border)',
+      borderRadius: 6,
+      padding: 16,
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <span className="section-header">Request Body</span>
+        <PostBadge />
+      </div>
+      <pre style={{
+        background: 'var(--swagger-bg)',
+        border: '1px solid var(--panel-border)',
+        borderRadius: 4,
+        padding: 12,
+        fontFamily: '"Fira Code", "SF Mono", monospace',
+        fontSize: '0.8rem',
+        overflowX: 'auto',
+        userSelect: 'none',
+        cursor: 'default',
+        whiteSpace: 'pre',
+        lineHeight: 1.5,
+      }}>
+        <HighlightedJSON obj={scenario.payload} />
+      </pre>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
+        <button
+          onClick={() => !isLoading && onExecute()}
+          disabled={isLoading}
+          style={{
+            background: isLoading ? 'var(--panel-border)' : 'var(--swagger-green)',
+            color: isLoading ? 'var(--text-secondary)' : 'var(--swagger-green-dark)',
+            border: 'none',
+            borderRadius: 4,
+            padding: '8px 20px',
+            fontWeight: 700,
+            fontSize: '0.875rem',
+            cursor: isLoading ? 'not-allowed' : 'pointer',
+            opacity: isLoading ? 0.6 : 1,
+            transition: 'background 200ms, opacity 200ms',
+          }}
+        >
+          {isLoading ? 'Running agent…' : 'Execute'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function StateGraph({ status, activePath, revealedNodes, errorMessage }) {
+  return (
+    <div style={{ background: '#22223a', borderRadius: 8, padding: 24 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <span className="section-header">Agent — LangGraph State Machine</span>
+        {status === 'loading' && (
+          <span style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>Running agent…</span>
+        )}
+      </div>
+
+      {status === 'error' ? (
+        <div style={{ color: 'var(--red)', fontSize: '0.875rem', padding: '8px 0' }}>
+          The API call failed — please try again.
+        </div>
+      ) : (
+        <svg width="700" height="500" viewBox="0 0 700 500" style={{ display: 'block' }}>
+          <defs>
+            <marker id="arrow-neutral" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L8,3 z" fill="var(--panel-border)" />
+            </marker>
+            <marker id="arrow-active" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L8,3 z" fill="var(--swagger-green)" />
+            </marker>
+          </defs>
+
+          {/* Edges */}
+          {EDGES.map(edge => {
+            const active = isEdgeActive(edge, activePath, revealedNodes);
+            return (
+              <path
+                key={`${edge.from}→${edge.to}`}
+                className="edge-path"
+                d={edgePath(edge.from, edge.to)}
+                fill="none"
+                stroke={active ? 'var(--swagger-green)' : 'var(--panel-border)'}
+                strokeWidth="1.5"
+                markerEnd={active ? 'url(#arrow-active)' : 'url(#arrow-neutral)'}
+              />
+            );
+          })}
+
+          {/* Loading pulse ring on classify */}
+          {status === 'loading' && (
+            <circle
+              className="pulse-ring"
+              cx={350} cy={60} r={36}
+              stroke="var(--swagger-green)" strokeWidth="1.5" fill="none"
+            />
+          )}
+
+          {/* Nodes */}
+          {NODES.map(node => {
+            const state = getNodeState(node.id, activePath, revealedNodes);
+            const isActive  = state === 'active';
+            const isDimmed  = state === 'dimmed';
+            const showSkip  = isDimmed && activePath !== 'standard_auto_resolve' && activePath !== 'standard_escalate';
+
+            return (
+              <g key={node.id}>
+                <rect
+                  className="node-rect"
+                  x={node.cx - 70} y={node.cy - 20}
+                  width={140} height={40} rx={6}
+                  fill={isActive ? 'var(--node-active-bg)' : 'var(--panel-bg)'}
+                  stroke={isActive ? 'var(--swagger-green)' : 'var(--panel-border)'}
+                  strokeWidth={isActive ? 2 : 1.5}
+                  opacity={isDimmed ? 0.3 : 1}
+                />
+                <text
+                  className="node-text"
+                  x={node.cx} y={node.cy + 4}
+                  textAnchor="middle"
+                  fontSize="11" fontFamily="system-ui, sans-serif" fontWeight="500"
+                  fill={isActive ? 'var(--swagger-green)' : 'var(--text-secondary)'}
+                  opacity={isDimmed ? 0.3 : 1}
+                >
+                  {node.label}
+                </text>
+                {showSkip && (
+                  <text
+                    x={node.cx} y={node.cy + 34}
+                    textAnchor="middle"
+                    fontSize="9" fontFamily="system-ui, sans-serif"
+                    fill="var(--text-secondary)" opacity={0.3}
+                  >
+                    skipped
+                  </text>
+                )}
+              </g>
+            );
+          })}
+        </svg>
+      )}
+    </div>
+  );
+}
+
+function ChunkCard({ chunk, idx }) {
+  const [expanded, setExpanded] = useState(false);
+  const snippet = chunk.text.length > 300 ? chunk.text.slice(0, 300) + '…' : chunk.text;
+
+  return (
+    <div
+      className="fade-in-card"
+      style={{
+        background: 'var(--panel-bg)',
+        border: '1px solid var(--panel-border)',
+        borderRadius: 6,
+        padding: 16,
+        animationDelay: `${idx * 150}ms`,
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+        <span style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--text-primary)' }}>
+          {chunk.document_id} — {chunk.section_id}
+        </span>
+        <span style={{
+          background: chunk.retrieved_via === 'cross_reference' ? 'var(--cross-ref-badge)' : 'var(--panel-border)',
+          color:      chunk.retrieved_via === 'cross_reference' ? 'white' : 'var(--text-secondary)',
+          fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase',
+          padding: '2px 8px', borderRadius: 4, letterSpacing: '0.05em',
+        }}>
+          {chunk.retrieved_via === 'cross_reference' ? 'CROSS-REF' : 'PRIMARY'}
+        </span>
+      </div>
+      <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: 8 }}>
+        {expanded ? chunk.text : snippet}
+      </p>
+      <button
+        onClick={() => setExpanded(e => !e)}
+        style={{
+          background: 'none', border: 'none',
+          color: 'var(--swagger-green)', fontSize: '0.8rem',
+          cursor: 'pointer', padding: 0, textDecoration: 'none',
+        }}
+        onMouseEnter={e => e.currentTarget.style.textDecoration = 'underline'}
+        onMouseLeave={e => e.currentTarget.style.textDecoration = 'none'}
+      >
+        {expanded ? 'Show less' : 'Show full chunk'}
+      </button>
+    </div>
+  );
+}
+
+function RetrievalPanel({ chunks }) {
+  return (
+    <div style={{ background: '#22223a', borderRadius: 8, padding: 24 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <span className="section-header">Retrieved Regulatory Chunks — Mimir</span>
+        <span style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>Two-pass retrieval</span>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {chunks.map((chunk, i) => <ChunkCard key={i} chunk={chunk} idx={i} />)}
+      </div>
+    </div>
+  );
+}
+
+function ResponsePanel({ path, response }) {
+  const statusBadge = path === 'rejection'
+    ? <span style={{ background: 'var(--red)', color: 'white', fontSize: '0.7rem', fontWeight: 700, padding: '2px 8px', borderRadius: 4 }}>422 Unprocessable Entity</span>
+    : <span style={{ background: 'var(--swagger-green)', color: 'var(--swagger-green-dark)', fontSize: '0.7rem', fontWeight: 700, padding: '2px 8px', borderRadius: 4 }}>200 OK</span>;
+
+  return (
+    <div style={{ background: '#22223a', borderRadius: 8, padding: 24 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <span className="section-header">Agent Response</span>
+        {statusBadge}
+      </div>
+
+      {path === 'standard' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {/* Confidence Score */}
+          <div style={{ background: 'var(--panel-bg)', border: '1px solid var(--panel-border)', borderRadius: 6, padding: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <span style={{
+                fontWeight: 700, fontSize: '1rem', textTransform: 'uppercase',
+                color: response.outcome === 'auto_resolve' ? 'var(--swagger-green)' : 'var(--amber)',
+              }}>
+                {response.outcome === 'auto_resolve' ? 'AUTO-RESOLVED' : 'ESCALATED'}
+              </span>
+              <span className="code-font" style={{ fontSize: '2rem', color: 'var(--text-primary)' }}>
+                {typeof response.confidence_score === 'number'
+                  ? response.confidence_score.toFixed(2)
+                  : response.confidence_score}
+              </span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{
+                background: response.confidence_score >= 0.75 ? 'var(--swagger-green)' : 'var(--red)',
+                color:      response.confidence_score >= 0.75 ? 'var(--swagger-green-dark)' : 'white',
+                fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase',
+                padding: '2px 8px', borderRadius: 4,
+              }}>
+                {response.confidence_score >= 0.75 ? 'HIGH' : 'LOW'}
+              </span>
+              <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>threshold: 0.75</span>
+            </div>
+          </div>
+
+          {/* Reasoning Trace */}
+          <div style={{ background: 'var(--panel-bg)', border: '1px solid var(--panel-border)', borderRadius: 6, padding: 16 }}>
+            <div style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--text-primary)', marginBottom: 10 }}>
+              Reasoning Trace
+            </div>
+            <div className="scroll-area" style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', lineHeight: 1.6 }}>
+              {response.reasoning_trace}
+            </div>
+          </div>
+
+          {/* Resolution Steps */}
+          <div style={{ background: 'var(--panel-bg)', border: '1px solid var(--panel-border)', borderRadius: 6, padding: 16 }}>
+            <div style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--text-primary)', marginBottom: 10 }}>
+              Resolution Steps
+            </div>
+            <div className="scroll-area" style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', lineHeight: 1.6 }}>
+              {response.resolution_steps}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {path === 'fast_exit' && (
+        <div style={{ background: 'var(--panel-bg)', border: '1px solid var(--panel-border)', borderRadius: 6, padding: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <span style={{ fontWeight: 700, fontSize: '1rem', textTransform: 'uppercase', color: 'var(--amber)' }}>ESCALATED</span>
+            <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Mandatory escalation — no model call</span>
+          </div>
+          <div className="code-font" style={{ fontSize: '0.875rem', marginBottom: 8 }}>
+            <span style={{ color: 'var(--text-secondary)' }}>Keyword detected: </span>
+            <span style={{ color: 'var(--swagger-green)', fontWeight: 700 }}>{response.triggered_keyword}</span>
+          </div>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', lineHeight: 1.6 }}>
+            {response.escalation_reason}
+          </p>
+        </div>
+      )}
+
+      {path === 'rejection' && (
+        <div style={{ background: 'var(--panel-bg)', border: '1px solid var(--panel-border)', borderRadius: 6, padding: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <span style={{ background: 'var(--red)', color: 'white', fontSize: '0.7rem', fontWeight: 700, padding: '2px 8px', borderRadius: 4 }}>
+              422 Unprocessable Entity
+            </span>
+            <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+              Rejected at validation — agent not reached
+            </span>
+          </div>
+          {(response.error?.detail || []).map((err, i, arr) => (
+            <div
+              key={i}
+              className="code-font"
+              style={{
+                fontSize: '0.8rem', color: 'var(--text-secondary)',
+                paddingBottom: i < arr.length - 1 ? 8 : 0,
+                marginBottom: i < arr.length - 1 ? 8 : 0,
+                borderBottom: i < arr.length - 1 ? '1px solid var(--panel-border)' : 'none',
+              }}
+            >
+              <div>loc: {JSON.stringify(err.loc)}</div>
+              <div>msg: {err.msg}</div>
+              <div>type: {err.type}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── App ──────────────────────────────────────────────────────────────────────
+
+function App() {
+  const [selectedId,      setSelectedId]      = useState(SCENARIOS[0].id);
+  const [isLoading,       setIsLoading]       = useState(false);
+  const [graphStatus,     setGraphStatus]     = useState('hidden');
+  const [activePath,      setActivePath]      = useState(null);
+  const [revealedNodes,   setRevealedNodes]   = useState(new Set());
+  const [retrievalVisible, setRetrievalVisible] = useState(false);
+  const [responseVisible,  setResponseVisible]  = useState(false);
+  const [apiResponse,     setApiResponse]     = useState(null);
+  const [errorMessage,    setErrorMessage]    = useState(null);
+
+  const timers = useRef([]);
+
+  function clearTimers() {
+    timers.current.forEach(clearTimeout);
+    timers.current = [];
+  }
+
+  function later(fn, ms) {
+    const id = setTimeout(fn, ms);
+    timers.current.push(id);
+    return id;
+  }
+
+  const selectedScenario = SCENARIOS.find(s => s.id === selectedId);
+
+  function resetOutput() {
+    clearTimers();
+    setGraphStatus('hidden');
+    setActivePath(null);
+    setRevealedNodes(new Set());
+    setRetrievalVisible(false);
+    setResponseVisible(false);
+    setApiResponse(null);
+    setErrorMessage(null);
+  }
+
+  function handleSelect(id) {
+    if (isLoading) return;
+    setSelectedId(id);
+    resetOutput();
+  }
+
+  async function handleExecute() {
+    if (isLoading) return;
+    clearTimers();
+    setIsLoading(true);
+    setGraphStatus('loading');
+    setActivePath(null);
+    setRevealedNodes(new Set());
+    setRetrievalVisible(false);
+    setResponseVisible(false);
+    setApiResponse(null);
+    setErrorMessage(null);
+
+    try {
+      const parsed      = await callHuginn(selectedScenario);
+      const ap          = deriveActivePath(parsed);
+      const activeList  = PATH_ACTIVE_NODES[ap];
+      const allNodeIds  = new Set(NODES.map(n => n.id));
+
+      setApiResponse(parsed);
+      setActivePath(ap);
+      setGraphStatus('animating');
+
+      // Animate active nodes one by one
+      activeList.forEach((nodeId, i) => {
+        later(() => {
+          setRevealedNodes(prev => new Set([...prev, nodeId]));
+        }, i * NODE_STAGGER_MS);
+      });
+
+      // After last active node: dim remaining, then reveal output sections
+      const lastNodeTime = (activeList.length - 1) * NODE_STAGGER_MS;
+
+      later(() => {
+        // Dim all non-active nodes simultaneously
+        setRevealedNodes(allNodeIds);
+
+        later(() => {
+          setGraphStatus('complete');
+          setIsLoading(false);
+
+          if (parsed.path === 'standard') {
+            later(() => {
+              setRetrievalVisible(true);
+              later(() => {
+                setResponseVisible(true);
+              }, POST_RETRIEVAL_DELAY_MS);
+            }, POST_GRAPH_DELAY_MS);
+          } else {
+            setResponseVisible(true);
+          }
+        }, NODE_TRANSITION_MS);
+      }, lastNodeTime + NODE_TRANSITION_MS);
+
+    } catch (err) {
+      setIsLoading(false);
+      setGraphStatus('error');
+      setErrorMessage('The API call failed — please try again.');
+    }
+  }
+
+  return (
+    <div style={{ maxWidth: 860, margin: '0 auto', padding: '40px 24px 80px' }}>
+      <FramingHeader />
+
+      <div style={{ marginTop: 32 }}>
+        <ScenarioSelector
+          selectedId={selectedId}
+          onSelect={handleSelect}
+          disabled={isLoading}
+        />
+      </div>
+
+      <div style={{ marginTop: 24 }}>
+        <RequestPanel
+          scenario={selectedScenario}
+          onExecute={handleExecute}
+          isLoading={isLoading}
+        />
+      </div>
+
+      {graphStatus !== 'hidden' && (
+        <div style={{ marginTop: 32 }}>
+          <StateGraph
+            status={graphStatus}
+            activePath={activePath}
+            revealedNodes={revealedNodes}
+            errorMessage={errorMessage}
+          />
+        </div>
+      )}
+
+      {retrievalVisible && apiResponse?.retrieved_chunks && (
+        <div style={{ marginTop: 32 }}>
+          <RetrievalPanel chunks={apiResponse.retrieved_chunks} />
+        </div>
+      )}
+
+      {responseVisible && apiResponse && (
+        <div style={{ marginTop: 32 }}>
+          <ResponsePanel path={apiResponse.path} response={apiResponse} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
