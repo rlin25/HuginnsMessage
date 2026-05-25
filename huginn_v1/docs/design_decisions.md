@@ -1,8 +1,8 @@
 # Huginn v1 — Locked Design Decisions
 
-**Status:** Phase 3 (Interface Contract) complete. All decisions locked.
+**Status:** Implementation complete. Phase 7 (Feedback Loop) complete. All decisions locked.
 **Last updated:** May 2026
-**Next phase:** Phase 4 — Masterplan + Atomic Subplans
+**Next phase:** Phase 7 complete. Ready for v2 design.
 
 ---
 
@@ -361,6 +361,104 @@ The logger handles all routing internally — writing to `audit.jsonl`, SQLite, 
 **Reasoning:** An exception that entered the pipeline but received no decision is a worse outcome than a conservative escalation. Silent failures produce audit log gaps, which are a compliance problem, and leave real trade exceptions unresolved with no human reviewer aware of them. Auto-escalating on failure ensures every exception that enters the pipeline gets a disposition, the audit trail is complete, and the human reviewer inbox catches anything the system could not handle.
 
 **Rejected option:** Return a structured error to the caller with no audit log entry written. Rejected because it creates an audit gap, puts the resolution burden on the caller, and does not guarantee the exception is reviewed by a human.
+
+---
+
+## Decision 29 — LLM Scoring Rubric (Implementation Detail)
+
+**Decision:** The LLM reasoning prompt in `agent/nodes.py` uses the following scoring rubric, reproduced exactly as implemented:
+
+```
+You are a settlement exception triage specialist at a financial firm.
+You have been given a trade exception and relevant Standard Operating Procedure (SOP) excerpts.
+Your task is to evaluate the exception against the SOP and produce a structured JSON response.
+
+SCORING RUBRIC:
+- Confidence score reflects how clearly the SOP applies to this specific exception.
+- Score 0.85–1.00: The SOP directly addresses this exact scenario. Resolution steps are unambiguous and complete.
+- Score 0.75–0.84: The SOP is relevant and mostly applicable. Minor gaps exist but resolution path is clear.
+- Score 0.50–0.74: The SOP is partially relevant. The scenario has elements not covered by the SOP, or the SOP provides conflicting guidance.
+- Score 0.00–0.49: The SOP does not adequately cover this scenario. Human review is required.
+
+Weighting factors:
+- Sub-type match: Does the retrieved SOP cover this specific sub-type? (High weight)
+- Description clarity: Is the exception description specific enough to act on? (Medium weight)
+- SOP completeness: Does the SOP provide complete resolution steps for this scenario? (Medium weight)
+- Presence of complicating factors not addressed in SOP: (Lowers score significantly)
+
+IMPORTANT: You must respond with valid JSON only. No preamble, no explanation, no markdown.
+Respond with exactly this structure:
+{
+  "confidence_score": <float between 0.0 and 1.0>,
+  "reasoning_trace": "<step-by-step explanation of how you arrived at the score>",
+  "resolution_steps": "<specific steps to resolve this exception per the SOP>"
+}
+```
+
+**Reasoning:** Decision 25 specified that a scoring rubric would exist as an implementation detail in `agent/nodes.py`, to be iterated in v2 based on audit log data. This decision records the exact rubric text implemented in v1. The rubric is the primary artifact for v2 prompt engineering — without recording it now, v2 prompt work loses its baseline. Every confidence score in the v1 audit log was produced by this rubric against `claude-sonnet-4-6` (Decision 32).
+
+**Rejected option:** Not recording the rubric text, treating it as an ephemeral implementation detail. Rejected because the rubric drives the confidence score distribution across all v1 audit log entries — understanding v1 scoring behavior and calibrating v2 thresholds requires knowing exactly what rubric produced it.
+
+---
+
+## Decision 30 — Chunking Strategy (Implementation Detail)
+
+**Decision:** `scripts/build_index.py` chunks SOP documents using `RecursiveCharacterTextSplitter` with `chunk_size=500`, `chunk_overlap=50`, and `separators=["\n\n", "\n", " "]`.
+
+**Reasoning:** `RecursiveCharacterTextSplitter` respects document structure by attempting to split on paragraph boundaries (`"\n\n"`) before line breaks (`"\n"`) before word boundaries (`" "`), producing chunks that are more semantically coherent than fixed-length splits. `chunk_size=500` is a v1 baseline appropriate for short SOP paragraphs — small enough that each chunk covers one procedural step, large enough that context is not fragmented. `chunk_overlap=50` prevents relevant sentences from being cut across two chunks where neither chunk has sufficient context alone.
+
+**Rejected option:** Fixed-length character splitting with no overlap. Rejected because it ignores document structure and creates chunks that cut across sentence boundaries, reducing semantic coherence and retrieval accuracy.
+
+---
+
+## Decision 31 — Embedding Model (Implementation Detail)
+
+**Decision:** `mimir/index.py` generates vector embeddings using `HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")`.
+
+**Reasoning:** `all-mpnet-base-v2` is a high-quality general-purpose sentence embedding model that runs entirely locally with no API key required. Downloads approximately 420MB on first use, then caches. This was established in setup_notes.md during pre-build and confirmed unchanged during implementation. Running embeddings locally eliminates a runtime API dependency and avoids per-query embedding cost.
+
+**Rejected option:** OpenAI `text-embedding-ada-002`. Rejected because it requires an API key and incurs per-token cost for both the one-time indexing step and every runtime retrieval query.
+
+---
+
+## Decision 32 — Claude API Model String (Implementation Detail)
+
+**Decision:** `agent/nodes.py` uses `LLM_MODEL = "claude-sonnet-4-6"` as the Claude API model identifier, defined as a module-level constant.
+
+**Reasoning:** `claude-sonnet-4-6` provides sufficient reasoning quality for v1's structured JSON output task at lower cost than Opus-tier models. Defining it as a module-level constant makes it visible at the top of the file without reading node implementations, and makes updating to a newer model a single-line change. The exact string must be recorded because model behavior affects confidence score distributions — v2 prompt engineering and calibration requires knowing which model produced the v1 audit log.
+
+**Rejected option:** Model string hardcoded inline in the API call. Rejected because it makes the model identifier invisible at module level and requires reading the full node implementation to find it.
+
+---
+
+## Decision 33 — Claude API Error Handling (Implementation Detail)
+
+**Decision:** `agent/nodes.py` catches all exceptions from the Claude API call with a bare `except Exception as e`. On any exception, the reason node returns `confidence_score=None`, `reasoning_trace=None`, `resolution_steps=None`, `llm_raw_response=None`, and `escalation_reason=f"system_error: {str(e)}"`. The decide node, seeing `confidence_score=None`, routes to escalation per Decision 28.
+
+**Reasoning:** Decision 28 specified that any Claude API failure should auto-escalate. A bare `except Exception` is the broadest possible catch — it handles timeouts, network errors, authentication failures, rate limit errors, malformed responses, and any other exception type without requiring explicit handling of each Anthropic SDK exception class. The full error string is captured in `escalation_reason` and written to the audit log, preserving the failure cause for debugging. All failure modes produce the same outcome (escalation with `system_error` reason), so differentiating exception types adds complexity without changing behavior.
+
+**Rejected option:** Catching specific Anthropic SDK exception types (e.g., `anthropic.APIConnectionError`, `anthropic.RateLimitError`). Rejected because exhaustively handling every SDK exception class adds code complexity without changing the outcome — all failure modes produce escalation with a `system_error` reason.
+
+---
+
+## Decision 34 — Pydantic Validation Error Format (Implementation Detail)
+
+**Decision:** `api/main.py` does not define a custom exception handler for Pydantic `ValidationError`. FastAPI's default handler converts `RequestValidationError` to HTTP 422 with the standard response structure:
+```json
+{
+  "detail": [
+    {
+      "loc": ["body", "field_name"],
+      "msg": "error description",
+      "type": "error_type"
+    }
+  ]
+}
+```
+
+**Reasoning:** FastAPI's default 422 behavior matches the interface contract specification exactly. Adding a custom handler would require maintaining the same output structure manually — more code, same result. The default handler is well-tested, familiar to FastAPI API consumers, and the interface contract already documented this exact format.
+
+**Rejected option:** Custom exception handler returning a simplified flat error message. Rejected because the structured `loc`/`msg`/`type` format is more informative for API consumers debugging validation failures, and the default behavior already satisfied the spec.
 
 ---
 

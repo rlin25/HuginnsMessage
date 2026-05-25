@@ -9,7 +9,7 @@ construction.
 
 # Claude Interaction Workflow — Behavioral Instructions and Methods
 
-**Status:** Current as of Huginn v1 Phase 3 complete.
+**Status:** Current as of Huginn v1 Phase 7 (Feedback Loop) complete.
 **Purpose:** A reusable reference for how to work with Claude effectively across projects. Documents every behavioral instruction, metacognitive method, and workflow decision established during Huginn development. Apply this to future projects from the start.
 
 ---
@@ -36,8 +36,8 @@ Apply the ten-item checklist (see Part 3) to the masterplan before any code is w
 ### Phase 6 — Implementation *(Claude Code)*
 Hand the masterplan to Claude Code. Subagents implement atomic subplans in strict build sequence order, each referencing the interface contract document. No subagent starts until the previous gate is confirmed working.
 
-### Phase 7 — Feedback Loop *(Claude Web Project)*
-After each Claude Code session, bring discoveries back to the Project. Update decisions that changed, flag interfaces that needed adjustment, note anything the planning phase missed. This keeps the Project context synchronized with the actual codebase as it evolves.
+### Phase 7 — Feedback Loop *(Claude Code)*
+Runs inside Claude Code after all subplans are complete and all tests pass. Claude Code has simultaneous access to the full codebase and all design documents, making it the correct environment for reconciliation — the Web Project cannot read source files. Claude Code reads every source file and design document, runs a four-category inspection (interface drift, changed decisions, implementation details that became decisions, new known issues), and regenerates all design documents clean against the actual implementation. The Web Project's role after Phase 7 is v2 design only — no further reconciliation work belongs there.
 
 ---
 

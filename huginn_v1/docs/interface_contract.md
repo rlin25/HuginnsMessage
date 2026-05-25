@@ -1,8 +1,8 @@
 # Huginn v1 — Interface Contract Document
 
-**Status:** Phase 3 complete. Locked.
+**Status:** Implementation complete. Phase 7 (Feedback Loop) complete.
 **Last updated:** May 2026
-**Source of truth:** `huginn_v1_design_decisions.md` (Decisions 1–27)
+**Source of truth:** `huginn_v1_design_decisions.md` (Decisions 1–34)
 **Purpose:** Defines every component's inputs, outputs, and data types. This is the stable contract Claude Code builds against. No implementation decision should contradict this document.
 
 ---
@@ -189,14 +189,12 @@ The API layer is the only entry point to the system. All validation happens here
 The state object flows through every node. Each node receives the full state and returns a partial update. Fields accumulate or replace as noted.
 
 ```python
-from typing import TypedDict, Annotated
-from operator import add
-from uuid import UUID
+from typing import TypedDict
 
 class AgentState(TypedDict):
     # Input — set at entry, never modified
     exception: dict                          # Full TradeException as dict
-    job_id: UUID                             # Assigned by API layer
+    job_id: str                              # Assigned by API layer
 
     # Set by classification node
     exception_type: str                      # Validated type value
@@ -211,6 +209,7 @@ class AgentState(TypedDict):
     confidence_score: float | None           # LLM-produced float 0.0–1.0
     reasoning_trace: str | None              # LLM-produced reasoning
     resolution_steps: str | None             # LLM-produced resolution steps
+    llm_raw_response: str | None             # Raw LLM response before JSON parsing
 
     # Set by decision node
     outcome: str | None                      # "auto_resolve" or "escalate"
@@ -220,6 +219,8 @@ class AgentState(TypedDict):
     current_node: str                        # Name of currently executing node
 ```
 
+[Updated post-implementation: Imports reduced to `from typing import TypedDict` only — `Annotated`, `from operator import add`, and `UUID` were not used in the implementation. `job_id` type changed from `UUID` to `str` — the API layer generates the job ID as a `str(uuid.uuid4())` and stores it as a string throughout. `llm_raw_response: str | None` added — the reason node stores the raw Claude API response before JSON parsing for full-fidelity audit logging and debugging; this field was present in `agent/state.py` but missing from the contract definition.]
+
 ### Node Specifications
 
 Each node is a pure function: `(AgentState) -> dict` (partial state update).
@@ -228,10 +229,12 @@ Each node is a pure function: `(AgentState) -> dict` (partial state update).
 |---|---|---|---|
 | `classify` | `exception` | `exception_type`, `exception_sub_type`, `triggered_keyword`, `current_node` | Detects keywords; sets triggered_keyword if found |
 | `retrieve` | `exception_sub_type`, `exception["description"]` | `retrieved_chunks`, `retrieved_document_id`, `current_node` | Standard path only; calls `mimir.retrieve()` |
-| `reason` | `exception`, `retrieved_chunks` | `confidence_score`, `reasoning_trace`, `resolution_steps`, `current_node` | Standard path only; calls Claude API |
-| `decide` | `confidence_score` | `outcome`, `escalation_reason`, `current_node` | Compares score against threshold (0.75) |
-| `escalate` | `triggered_keyword`, `outcome` | `outcome`, `escalation_reason`, `current_node` | Fast-exit and standard path escalation |
+| `reason` | `exception`, `retrieved_chunks` | `confidence_score`, `reasoning_trace`, `resolution_steps`, `llm_raw_response`, `current_node`; also `escalation_reason` on API failure | Standard path only; calls Claude API. On failure: all LLM fields null, `escalation_reason = "system_error: ..."` |
+| `decide` | `confidence_score` | `outcome`, `escalation_reason`, `current_node` | Compares score against threshold (0.75); escalates if `confidence_score` is null |
+| `escalate_fast_exit` | `triggered_keyword` | `outcome`, `escalation_reason`, `current_node` | Fast-exit path only; sets `outcome = "escalate"`, records keyword as reason |
 | `log_result` | All fields | None (side effect only) | Calls `logger.log()` |
+
+[Updated post-implementation: `escalate` renamed to `escalate_fast_exit` — matches the actual function name in `agent/nodes.py`. `reason` node output expanded to include `llm_raw_response` and the failure-path `escalation_reason` — the reason node writes these fields directly when the Claude API call throws an exception (Decision 33).]
 
 ### Graph Paths
 
@@ -239,7 +242,7 @@ Each node is a pure function: `(AgentState) -> dict` (partial state update).
 Fires at API layer (Pydantic validation), not inside the graph. The agent never receives an invalid type.
 
 **Path 2 — Mandatory escalation fast-exit:**
-`classify` → (keyword found) → `escalate` → `log_result`
+`classify` → (keyword found) → `escalate_fast_exit` → `log_result`
 - `retrieved_chunks` remains empty
 - `retrieved_document_id` is null
 - `confidence_score` is null
@@ -426,7 +429,7 @@ HTTP Request
     ↓
 [Agent — classify node] — detects type and keywords
     ↓
-    ├── keyword found → [Agent — escalate node] → [Logger]
+    ├── keyword found → [Agent — escalate_fast_exit node] → [Logger]
     └── no keyword → [Mimir — retrieve()] → [Agent — reason node]
                                                     ↓
                                              [Agent — decide node]

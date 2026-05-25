@@ -1,8 +1,8 @@
 # Huginn v1 — Architecture Document
 
-**Status:** Design locked. Phase 3 — Interface Contract Document.
+**Status:** Implementation complete. Phase 7 (Feedback Loop) complete.
 **Last updated:** May 2026
-**Source of truth:** `huginn_v1_design_decisions.md` (Decisions 1–12)
+**Source of truth:** `huginn_v1_design_decisions.md` (Decisions 1–34)
 
 ---
 
@@ -91,7 +91,7 @@ Nothing else runs.        │                                    │
 ## Folder Structure
 
 ```
-huginn/
+huginn_v1/
 ├── api/
 │   └── main.py                  # FastAPI endpoints and routing
 ├── agent/
@@ -102,8 +102,8 @@ huginn/
 │   ├── retriever.py             # Single query function — the only public interface
 │   └── index.py                 # Chroma loading and initialization logic
 ├── knowledge_base/
-│   ├── raw/                     # Source SOP documents (.txt or .pdf)
-│   └── processed/               # Chroma persistent index (auto-generated)
+│   ├── raw/                     # Source SOP documents (.txt — TextLoader)
+│   └── processed/               # Chroma persistent index (auto-generated, gitignored)
 ├── logger/
 │   └── audit.py                 # Structured logger — writes JSONL and SQLite
 ├── models/
@@ -111,6 +111,7 @@ huginn/
 ├── scripts/
 │   └── build_index.py           # One-time preprocessing — chunk, embed, load to Chroma
 ├── tests/
+│   ├── conftest.py              # Shared fixtures and test configuration
 │   ├── test_agent.py            # Agent node unit tests
 │   ├── test_mimir.py            # Retriever unit tests
 │   └── test_api.py              # API integration tests
@@ -118,10 +119,13 @@ huginn/
 │   ├── audit.jsonl              # Append-only human-readable compliance log
 │   ├── audit.db                 # SQLite database for queryable log history
 │   └── escalation_queue.jsonl   # Human reviewer inbox
+├── docs/                        # Design documents
+├── prompts/                     # Claude Code prompt files
 ├── .env                         # API keys (Claude API key)
-├── requirements.txt
 └── README.md                    # Discloses synthetic knowledge base
 ```
+
+[Updated post-implementation: Root directory is `huginn_v1/` not `huginn/`. SOP documents are plaintext `.txt` files loaded via `langchain_community.document_loaders.TextLoader` — no PDF parsing. `tests/conftest.py` added. `docs/` and `prompts/` directories present. `requirements.txt` is not present in the repo — see Known Issues in `docs/setup_notes.md`.]
 
 ---
 
@@ -136,7 +140,6 @@ huginn/
 | **LangChain** | Document preprocessing only | Used minimally for its document loaders and text splitters during knowledge base indexing — not used in the runtime agent path |
 | **Chroma** | Vector store | Persists to disk (no re-indexing on restart), runs locally with no external service, supports metadata filtering, most common local vector store in LangChain projects. Supersedes FAISS. |
 | **sentence-transformers** | Embedding model | Converts text to vector embeddings for Chroma — runs entirely locally with no API key required |
-| **PyMuPDF** | PDF parsing | Extracts text from SOP documents during the one-time preprocessing step |
 | **sqlite3** | Audit log database | Built into Python's standard library — zero additional dependency, queryable by exception type/outcome/confidence/date, sets up v2 evaluation harness naturally |
 | **pytest** | Testing | Standard Python testing framework — used for unit tests on individual nodes and integration tests on the full API |
 | **python-dotenv** | Environment config | Loads Claude API key from `.env` without hardcoding credentials |
