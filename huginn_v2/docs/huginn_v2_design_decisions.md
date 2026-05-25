@@ -1,9 +1,9 @@
 # Huginn v2 — Locked Design Decisions
 
-**Status:** V2 design phase complete. Ready for Phase 3 (Interface Contract).
+**Status:** Implementation complete. Phase 7 (Feedback Loop) complete. All decisions locked.
 **Last updated:** May 2026
 **Source of truth:** This document supersedes `huginn_v1_design_decisions.md` for v2. V1 decisions are carried forward unchanged unless explicitly noted as updated.
-**Next phase:** Phase 3 — Interface Contract.
+**Next phase:** Phase 7 complete. Ready for v3 design.
 
 ---
 
@@ -83,6 +83,8 @@ Huginn is an AI agent that receives flagged financial trade exceptions, classifi
 **Reasoning:** Unchanged from v1.
 
 **Rejected option:** Two endpoints only.
+
+[Implementation-phase update: `GET /escalations` was initially not implemented. `GET /health` (returning `{"status": "ok"}`) was added instead, which was not in the specification. After the Phase 7 inspection pass confirmed the spec deviation, `GET /escalations` was implemented — see Decision 53. V2 now exposes all three specified endpoints plus `GET /health`.]
 
 ---
 
@@ -233,6 +235,20 @@ No synthetic SOP documents. The synthetic nature of the v1 knowledge base is dis
 **Reasoning:** Unchanged from v1.
 
 **Rejected option:** Minimal response returning only `job_id` and `status`.
+
+[Implementation-phase update: The implemented response does not match this schema. Because v2 processing is synchronous, the full agent result is available before the POST response is sent. The implementation returns the full result immediately:
+```json
+{
+  "job_id": "uuid",
+  "outcome": "auto_resolve | escalate",
+  "confidence_score": "float | null",
+  "reasoning_trace": "str | null",
+  "resolution_steps": "str | null",
+  "escalation_reason": "str | null",
+  "retrieved_document_ids": ["str", ...]
+}
+```
+`GET /exceptions/{job_id}` still works as a second read path (reads from SQLite audit log), but the POST response already contains the complete result. See Decision 50 for the full rationale. The fake-async minimal response was not used.]
 
 ---
 
@@ -412,15 +428,21 @@ The rubric text is the primary artifact for v3 prompt engineering — every conf
 
 [Updated v2: Strategy replaced. V1 used RecursiveCharacterTextSplitter with character-based boundaries. V2 uses rule-section-aware splitting on lettered subsections.]
 
-**Decision:** `scripts/build_index.py` chunks regulatory documents using a custom section-aware parser. Documents are stored as sourced — one PDF per rule (e.g. `FINRA-11810.pdf`). The indexing script extracts text from each PDF using `pypdf`, then parses section boundaries by detecting lettered subsection headers using regex pattern `^\([a-z]\)` combined with a minimum chunk length threshold of 200 characters to prevent false splits on incidental parenthetical references. The parent rule identifier and section header are prepended to every chunk as context.
+**Decision:** `scripts/build_index.py` chunks regulatory documents using a custom section-aware parser. Documents are stored as sourced — one PDF per rule (e.g. `FINRA-11810.pdf`). The indexing script extracts text from each PDF using `pypdf`, then parses section boundaries by detecting lettered subsection headers using regex pattern `^\([a-z]\)` combined with two distinct protective mechanisms: a false-split filter and a minimum chunk length threshold.
 
-**Reasoning:** Regulatory rules are divided into logical units by their authors — lettered subsections are the natural semantic boundaries. A chunk containing Rule 11810(b) with its header is more retrievable and self-contained than a character-boundary slice that crosses subsection lines. The 200-character minimum prevents the regex from splitting on mid-paragraph parentheticals that PDF extraction may place at line start.
+The parent rule identifier and section header are prepended to every chunk as context.
+
+**Two mechanisms — clarified post-implementation:**
+
+*False-split filter (`_is_real_section()`)* — Rejects `(x)` regex matches that are not real section headers. After each regex match, the filter looks at the first non-whitespace, non-quote, non-parenthesis character following the `(x)` marker. If it is lowercase, the match is discarded as a mid-sentence parenthetical, not a section boundary. Discovered necessary during Subplan 2 validation: FINRA-11810 contains the phrase `(b) through (g) of this Rule shall apply` embedded mid-sentence, which the regex would have split on. Without the filter, FINRA-11810 produced 15 chunks (including a spurious 292-char mid-sentence fragment); with it, 14 correct chunks.
+
+*Minimum chunk length (200 chars)* — After filtering and splitting, chunks shorter than 200 characters are merged with the preceding chunk. This handles genuinely short subsections (e.g. a single-sentence subsection that passed the false-split filter) that would be too small to retrieve meaningfully. This is a separate mechanism from false-split prevention; the design documents initially described it as preventing false splits, which was inaccurate.
+
+**Reasoning:** Regulatory rules are divided into logical units by their authors — lettered subsections are the natural semantic boundaries. A chunk containing Rule 11810(b) with its header is more retrievable and self-contained than a character-boundary slice that crosses subsection lines.
 
 **Rejected option:** RecursiveCharacterTextSplitter with increased chunk_size. Rejected because it imposes arbitrary character boundaries on documents whose authors already defined logical boundaries.
 
 **Rejected option:** One file per section stored as `.txt`. Rejected because regulatory documents are sourced as PDFs and splitting them manually is unnecessary given the section parser.
-
-**Implementation risk:** PDF text extraction quality varies by source document. The section parser must be validated against actual extracted text from all six regulatory documents before indexing proceeds. Claude Code must log chunk boundaries for inspection during `build_index.py` development.
 
 ---
 
@@ -644,6 +666,90 @@ All other values are rejected at the API layer with a structured Pydantic valida
 - `wrong_settlement_date`
 
 Each sub-type is covered by the v2 regulatory knowledge base, though not by a dedicated single document as in v1.
+
+---
+
+## Decision 47 — LLM max_tokens
+
+**Decision:** `agent/nodes.py` sets `max_tokens=2048` in the Claude API call.
+
+**Reasoning:** The masterplan specified `max_tokens=1000`. During the Subplan 5 gate, the Claude API response was truncated mid-JSON at char 2829, producing the error `Unterminated string starting at: line 4 column 23 (char 2829)`. The reasoning trace and resolution steps are both long natural-language strings that expand significantly when applied to multi-paragraph regulatory document chunks. 2048 tokens was sufficient for all observed responses. 1000 tokens was not.
+
+**Rejected option:** `max_tokens=1000`. Rejected because it causes JSON parse failures when the regulatory context produces long reasoning traces.
+
+---
+
+## Decision 48 — dotenv Loading Strategy
+
+**Decision:** `agent/nodes.py` calls `load_dotenv(find_dotenv(usecwd=True))` at module level to load the `ANTHROPIC_API_KEY`.
+
+**Reasoning:** `load_dotenv()` without arguments only searches the current working directory. The project's `.env` file lives in the parent directory of `huginn_v2/` (at `/root/HuginnsMessage/.env`). `find_dotenv(usecwd=True)` searches upward from the CWD until it finds a `.env` file, making it resilient to the file's location. `usecwd=True` starts from the actual working directory rather than using Python frame introspection, which fails in non-interactive execution contexts (bash heredocs, test runners).
+
+**Rejected option:** Hardcoding the `.env` path. Rejected because it breaks portability.
+
+**Rejected option:** `load_dotenv()` without arguments. Rejected because it does not search parent directories.
+
+---
+
+## Decision 49 — False-Split Filter Implementation
+
+**Decision:** `scripts/build_index.py` implements `_is_real_section(text, match)` to filter regex matches that are not true section boundaries. After each `^\([a-z]\)` match, the function reads up to 60 characters of following text, strips leading whitespace and optional leading quote/parenthesis characters, and requires the first character to be uppercase. Matches followed by lowercase-starting text are discarded.
+
+**Reasoning:** FINRA-11810 contains the phrase `(b) through (g) of this Rule shall apply` embedded mid-sentence in section (k). The regex `^\([a-z]\)` with `re.MULTILINE` fires on this match because PDF text extraction places it at the start of a line. Without the filter, FINRA-11810 produced 15 chunks including a spurious 292-char mid-sentence fragment. With the filter it produces 14 semantically correct chunks. All real section headers in the six regulatory documents start with uppercase words or section titles — the filter does not discard any true boundaries.
+
+**Rejected option:** Relying on the 200-char minimum alone to eliminate false splits. Rejected because the false split produced a 292-char fragment that would have passed the minimum threshold and been indexed as a real section.
+
+---
+
+## Decision 50 — POST /exceptions Returns Full Result
+
+**Decision:** `POST /exceptions` returns the full agent result immediately rather than the `{job_id, status, exception_id, timestamp}` minimal response specified in Decision 19.
+
+**Reasoning:** V2 processing is synchronous — `huginn_graph.invoke()` runs to completion before the POST response is sent. The full result is available at zero marginal cost. Returning only a job ID and then requiring a second GET request adds a round trip with no benefit. The fake-async minimal response exists to support v3 async processing, where the result may not be ready when POST returns. In v2, returning the full result is strictly more useful. Decision 19 addendum documents the schema change.
+
+The two-endpoint pattern is preserved: `GET /exceptions/{job_id}` still provides a read path (from the SQLite audit log), supporting the v3 transition and enabling result lookup after the POST response has been consumed.
+
+**Rejected option:** Fake-async minimal response as specified. Rejected because it forces unnecessary client complexity (a second HTTP round trip) when the result is already available.
+
+---
+
+## Decision 51 — GET /exceptions/{job_id} Reads from SQLite
+
+**Decision:** `GET /exceptions/{job_id}` looks up `job_id` in the SQLite audit database (`logs/audit.db`) and returns the stored `full_event_json` column. It does not use an in-memory dict.
+
+**Reasoning:** The masterplan specified an in-memory `results: dict[str, dict]` store, which would be cleared on server restart. Reading from SQLite is persistent — a job ID submitted in a previous server session remains retrievable. Since the audit logger already writes every result to SQLite, using that as the read-path store adds no new code. The `full_event_json` column stores the complete event dict, which contains all fields needed for the GET response.
+
+**Rejected option:** In-memory dict as specified in the masterplan. Rejected because it loses results on server restart, which is a regression from the audit log's durability guarantee.
+
+---
+
+## Decision 52 — GET /health Endpoint
+
+**Decision:** `api/main.py` includes a `GET /health` endpoint returning `{"status": "ok"}`. This endpoint was not in the original specification.
+
+**Reasoning:** Added during Subplan 6 implementation. Standard FastAPI service practice. Required by any container orchestration or reverse proxy health check. Low risk, no state, no dependencies.
+
+**Rejected option:** No health endpoint. Rejected because it makes the service harder to integrate with deployment infrastructure.
+
+---
+
+## Decision 53 — GET /escalations Implementation
+
+**Decision:** `GET /escalations` is implemented in `api/main.py`. Queries `logs/audit.db` filtered by `outcome = 'escalate'` and returns `{"escalations": [...]}` where each entry is the full event dict from `full_event_json`. Returns `{"escalations": []}` when no escalations exist or the database does not yet exist.
+
+**Reasoning:** Initially deferred during the Phase 7 inspection pass. Resolved in the same session after review confirmed: it was in the original v2 spec (Decision 7), the escalation data was already being written to SQLite by the logger, and the implementation was a simple filtered read — no new design decisions required.
+
+**Rejected option:** Reading from `logs/escalation_queue.jsonl` directly. Rejected because the SQLite audit database already contains all the same records, is queryable without line-by-line parsing, and is the source used by `GET /exceptions/{job_id}` for consistency.
+
+---
+
+## Decision 54 — requirements.txt
+
+**Decision:** `requirements.txt` is generated from `pip freeze` and committed to the repository. It contains all installed packages including transitive dependencies (151 packages in the known-working environment).
+
+**Reasoning:** Absent during initial implementation — new developers had no reproducible install path. Generated and committed after the Phase 7 inspection identified it as a known issue. Full `pip freeze` output is used rather than a curated list because transitive dependency versions affect embedding model loading and LangGraph behavior; partial version pinning creates false confidence.
+
+**Rejected option:** Curated list of top-level dependencies only. Rejected because transitive dependency version mismatches are a known source of silent failures in the LangGraph + Chroma + sentence-transformers stack.
 
 ---
 

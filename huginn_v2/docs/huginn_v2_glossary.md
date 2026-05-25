@@ -261,10 +261,12 @@ The HuggingFace sentence transformer model used to generate vector embeddings. `
 The number of chunks fetched per referenced rule in the cross-reference pass (Pass 2). Independent of the `top_k` parameter passed by the caller, which controls Pass 1 only. Smaller than `top_k` because Pass 2 fetches for specific context on a known reference, not a broad relevance search. Defined as a module-level constant so it is visible and tunable without reading the retrieval logic.
 
 **`KNOWN_DOCUMENT_IDS`**
-The set of rule number substrings used for cross-reference detection: `{"15c6-1", "15c6-2", "11100", "11710", "11810", "11820"}`. String matching checks whether any of these substrings appear in a chunk's text. Kept as a module-level constant so adding a new document in v3 requires updating only this set and `SUBSTRING_TO_DOCUMENT_ID`.
+The set of rule number substrings used for cross-reference detection: `{"15c6-1", "15c6-2", "11100", "11710", "11810", "11820"}`. Specified as a separate module-level constant in the design documents.
+
+[Updated post-implementation: `KNOWN_DOCUMENT_IDS` was not implemented as a separate constant. The two constants (`KNOWN_DOCUMENT_IDS` and `SUBSTRING_TO_DOCUMENT_ID`) were collapsed into one. Cross-reference detection iterates `SUBSTRING_TO_DOCUMENT_ID.items()`, which provides both the substrings and their full `document_id` values in a single pass. In v3, adding a new document requires updating only `SUBSTRING_TO_DOCUMENT_ID`.]
 
 **`SUBSTRING_TO_DOCUMENT_ID`**
-A dict mapping the rule number substrings in `KNOWN_DOCUMENT_IDS` to their full `document_id` values used in Chroma metadata filtering. E.g. `"11810" → "FINRA-11810"`. Required because cross-reference detection finds the substring `"11810"` in chunk text, but the Chroma `where` filter needs the full `document_id` string `"FINRA-11810"`.
+A dict mapping rule number substrings to their full `document_id` values used in Chroma metadata filtering: `{"15c6-1": "SEC-15c6-1", "15c6-2": "SEC-15c6-2", "11100": "FINRA-11100", "11710": "FINRA-11710", "11810": "FINRA-11810", "11820": "FINRA-11820"}`. Cross-reference detection iterates this dict — when a substring appears in chunk text, the corresponding full `document_id` is queued for Pass 2. Also serves as `KNOWN_DOCUMENT_IDS` (see above).
 
 **`retrieved_via`**
 A field in every returned chunk dict indicating which retrieval pass produced it. Value is either `"primary"` (Pass 1 semantic search) or `"cross_reference"` (Pass 2 targeted retrieval). Enables the audit log to record which chunks came from each pass without exposing pass internals through the public interface.
@@ -330,11 +332,15 @@ The `section_id` and `retrieved_via` fields are included so the LLM can reason a
 
 ### `agent/graph.py`
 
-**`should_fast_exit(state)`**
+**`_route_after_classify(state)`**
 A LangGraph routing function. Not a node — it produces no state update. Reads `triggered_keyword` and returns a routing key: `"fast_exit"` or `"standard"`. Used as the condition for the conditional edge after the classify node.
 
-**`should_escalate(state)`**
-A LangGraph routing function. Reads `outcome` and returns `"escalate"` or `"resolve"`. Both keys route to `log_result` — the conditional edge exists to make the branching explicit and extensible, not to route to different terminal nodes.
+[Updated post-implementation: Specified as `should_fast_exit(state)`. Implementation uses `_route_after_classify`.]
+
+**`_route_after_decide(state)`**
+A LangGraph routing function. Reads `outcome` and returns `"auto_resolve"` or `"escalate"`. Both keys route to `log_result` — the conditional edge exists to make the branching explicit and extensible, not to route to different terminal nodes.
+
+[Updated post-implementation: Specified as `should_escalate(state)`. Implementation uses `_route_after_decide`.]
 
 **`huginn_graph = build_graph()`**
 The module-level compiled graph instance. Compiled once at import time and shared across all callers in the process. The API layer imports this name directly: `from agent.graph import huginn_graph`.
@@ -344,10 +350,14 @@ The module-level compiled graph instance. Compiled once at import time and share
 ### `api/main.py`
 
 **`_result_store`**
-An in-memory dict mapping `job_id` (str) to result dicts. Populated by `POST /exceptions` after the agent completes; read by `GET /exceptions/{job_id}`. Not persistent — cleared on server restart. V3 replaces this with a persistent store when async processing is added.
+An in-memory dict specified in the masterplan to back `GET /exceptions/{job_id}`. Not implemented.
 
-**`exception.model_dump_json()` + `json.loads()`**
-The pattern for converting a Pydantic model to a plain dict with fully serializable values. `model_dump()` alone preserves Python types (UUID objects, datetime objects) that are not JSON-serializable. The JSON round-trip converts them to strings. Necessary because the agent state and audit logger expect plain dicts with string values throughout.
+[Updated post-implementation: The implementation does not use an in-memory dict. `GET /exceptions/{job_id}` queries the SQLite audit database (`logs/audit.db`) and returns the stored `full_event_json` column. Persistent across server restarts — see Decision 51.]
 
-**Fake async job ID pattern**
-`POST /exceptions` returns a job ID immediately; `GET /exceptions/{job_id}` retrieves the result. In v2 the agent runs synchronously before the POST response is sent — the result is always ready. The two-endpoint pattern keeps the interface forward-compatible with v3 async processing, where the result may not be ready when the POST returns.
+**`exception.model_dump(mode="json")`**
+The method used to convert a Pydantic `TradeException` model to a plain dict with JSON-serializable values before passing to the agent state. `mode="json"` serializes UUID as a hyphenated string and datetime as an ISO 8601 string. Necessary because the agent state and audit logger expect plain dicts throughout.
+
+[Updated post-implementation: The design documents described `model_dump_json() + json.loads()` (a JSON round-trip). The implementation uses `model_dump(mode="json")` directly, which produces the same result without the intermediate JSON string.]
+
+**Full-result POST response**
+`POST /exceptions` returns the full agent result immediately. `GET /exceptions/{job_id}` provides a second read path from the SQLite audit log. In v2, the result is always ready when POST returns. The two-endpoint pattern keeps the interface forward-compatible with v3 async processing, where the result may not be ready when POST returns — see Decision 50.

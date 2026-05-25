@@ -9,7 +9,7 @@ construction.
 
 # Claude Interaction Workflow — Behavioral Instructions and Methods
 
-**Status:** Current as of Huginn v1 Phase 3 complete.
+**Status:** Current as of Huginn v2 Phase 7 complete.
 **Purpose:** A reusable reference for how to work with Claude effectively across projects. Documents every behavioral instruction, metacognitive method, and workflow decision established during Huginn development. Apply this to future projects from the start.
 
 ---
