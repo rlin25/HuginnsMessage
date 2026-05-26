@@ -18,6 +18,6 @@ Huginn is a LangGraph-based AI agent that classifies financial trade exceptions 
 
 Every version followed the same six-phase sequence: domain learning, Socratic design, interface contract, masterplan, implementation, feedback loop. Phases one through four happened before Claude Code wrote a line of code. Claude acted as a design partner — pressing on reasoning, surfacing gaps, formalizing decisions. Every architectural judgment was the developer's.
 
-The design artifacts — interface contracts, locked decision logs, masterplans — are version-stable. The code is intentionally disposable. V2 was regenerated from scratch against an updated masterplan. V3 will be too. The documents carry intent across versions. The code does not.
+The design artifacts — interface contracts, locked decision logs, masterplans — are version-stable. The code is intentionally disposable. V2 was regenerated from scratch against an updated masterplan. The documents carry intent across versions. The code does not.
 
 The `prompts/` directory in each sub-project contains the structured prompts that governed the AI collaboration at each phase.
