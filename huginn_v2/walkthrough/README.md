@@ -1,6 +1,6 @@
 # Huginn v2 — Code Walkthrough
 
-Nine files. Click any node to open its walkthrough.
+Nine files. Browse the directory above to open any walkthrough.
 
 ```mermaid
 flowchart TD
@@ -24,16 +24,6 @@ flowchart TD
     BLD -->|populates| CDB
 
     AUD --> RESP(["HTTP Response"]):::io
-
-    click API href "api_main.md"
-    click MDL href "models_exception.md"
-    click STA href "agent_state.md"
-    click GRP href "agent_graph.md"
-    click NOD href "agent_nodes.md"
-    click RET href "mimir_retriever.md"
-    click IDX href "mimir_index.md"
-    click AUD href "logger_audit.md"
-    click BLD href "scripts_build_index.md"
 
     classDef entry fill:#064e3b,stroke:#34d399,stroke-width:2px,color:#d1fae5
     classDef agent fill:#1e3a5f,stroke:#60a5fa,stroke-width:2px,color:#dbeafe
