@@ -31,13 +31,13 @@ flowchart TD
     subgraph MIMIR["Mimir  ·  ChromaDB"]
         RET["retrieve\nQuery knowledge base"]:::proc
         DB[("6 FINRA / SEC docs\nPass 1 · semantic · k=3\nPass 2 · cross-ref · k=2")]:::store
-        RET -->|query| DB
+        RET --> DB
     end
 
     subgraph CLAUDE_API["Claude API  ·  claude-sonnet-4-6"]
         RSN["reason\nFour-factor scoring rubric"]:::proc
         MODEL["Condition Match  ·  Obligation Clarity\nException Applicability  ·  Cross-ref Resolution"]:::llm
-        RSN -->|prompt + chunks| MODEL
+        RSN --> MODEL
     end
 
     DB --> RSN
