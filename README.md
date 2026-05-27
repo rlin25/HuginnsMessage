@@ -24,18 +24,18 @@ flowchart TD
     VAL -->|"422"| ERR(["Unprocessable Entity"]):::error
     VAL -->|valid| CLS
 
-    CLS["classify\nKeyword scan on description"]:::node
+    CLS["classify\nKeyword scan on description"]:::proc
     CLS -->|"sanctions · AML\nbuy-in · sell-out"| FE["escalate_fast_exit\nRegulatory keyword bypass"]:::orange
     CLS -->|no keyword| RET
 
     subgraph MIMIR["Mimir  ·  ChromaDB"]
-        RET["retrieve\nQuery knowledge base"]:::node
+        RET["retrieve\nQuery knowledge base"]:::proc
         DB[("6 FINRA / SEC docs\nPass 1 · semantic · k=3\nPass 2 · cross-ref · k=2")]:::store
         RET -->|query| DB
     end
 
     subgraph CLAUDE_API["Claude API  ·  claude-sonnet-4-6"]
-        RSN["reason\nFour-factor scoring rubric"]:::node
+        RSN["reason\nFour-factor scoring rubric"]:::proc
         MODEL["Condition Match  ·  Obligation Clarity\nException Applicability  ·  Cross-ref Resolution"]:::llm
         RSN -->|prompt + chunks| MODEL
     end
@@ -46,7 +46,7 @@ flowchart TD
     DEC -->|"score ≥ 0.75"| AUTO["auto_resolve"]:::green
     DEC -->|"score < 0.75"| ESC["escalate"]:::orange
 
-    FE & AUTO & ESC --> LOG["log_result\nAssembles AgentState"]:::node
+    FE & AUTO & ESC --> LOG["log_result\nAssembles AgentState"]:::proc
 
     subgraph AUDIT["Audit Layer"]
         direction LR
@@ -58,7 +58,7 @@ flowchart TD
     LOG --> AUDIT
     LOG --> RESP(["HTTP Response\njob_id · outcome · confidence_score"]):::api
 
-    classDef node fill:#1e3a5f,stroke:#60a5fa,stroke-width:2px,color:#dbeafe
+    classDef proc fill:#1e3a5f,stroke:#60a5fa,stroke-width:2px,color:#dbeafe
     classDef decision fill:#312e81,stroke:#818cf8,stroke-width:2px,color:#e0e7ff
     classDef green fill:#14532d,stroke:#4ade80,stroke-width:2px,color:#dcfce7
     classDef orange fill:#431407,stroke:#fb923c,stroke-width:2px,color:#ffedd5
