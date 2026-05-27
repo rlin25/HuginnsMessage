@@ -20,44 +20,52 @@ Huginn v2 control flow — from API ingress through the LangGraph state machine 
 
 ```mermaid
 flowchart TD
-    API["POST /exceptions"] --> VAL{"Pydantic\nValidation"}
-    VAL -- "invalid type → 422" --> ERR["Unprocessable Entity"]
-    VAL -- valid --> CLS
-    CLS["classify\nKeyword scan on description\nSets: exception_type · triggered_keyword"]
-    CLS -- "keyword detected\nsanctions · AML · buy-in · sell-out" --> FE
-    CLS -- no keyword --> RET
-    RET["retrieve\nSets: retrieved_chunks\nretrieved_document_ids"]
-    RET -- query --> DB
-    DB -- ranked chunks --> RSN
-    subgraph MIMIR["Mimir — ChromaDB"]
-        DB[("6 FINRA / SEC rules\nPass 1: semantic · k=3\nPass 2: cross-ref · k=2")]
+    API(["POST /exceptions"]):::api --> VAL{Pydantic\nValidation}:::decision
+    VAL -->|"422"| ERR(["Unprocessable Entity"]):::error
+    VAL -->|valid| CLS
+
+    CLS["classify\nKeyword scan on description"]:::node
+    CLS -->|"sanctions · AML\nbuy-in · sell-out"| FE["escalate_fast_exit\nRegulatory keyword bypass"]:::orange
+    CLS -->|no keyword| RET["retrieve\nQuery knowledge base"]:::node
+
+    subgraph MIMIR["Mimir  ·  ChromaDB"]
+        DB[("6 FINRA / SEC docs\nPass 1 · semantic · k=3\nPass 2 · cross-ref · k=2")]:::store
     end
-    RSN["reason\nSets: confidence_score · reasoning_trace\nresolution_steps · llm_raw_response"]
-    RSN -- prompt + chunks --> CLAUDE
-    CLAUDE -- scored JSON --> DEC
-    subgraph CLAUDE_API["Claude API"]
-        CLAUDE["claude-sonnet-4-6  ·  max_tokens=2048\nFour-factor rubric:\nCondition Match · Obligation Clarity\nException Applicability · Cross-ref Resolution"]
+
+    RET -->|query| DB
+    DB -->|ranked chunks| RSN["reason\nFour-factor scoring rubric"]:::node
+
+    subgraph CLAUDE_API["Claude API  ·  claude-sonnet-4-6"]
+        MODEL["Condition Match  ·  Obligation Clarity\nException Applicability  ·  Cross-ref Resolution"]:::llm
     end
-    DEC["decide\nThreshold: 0.75\nSets: outcome · escalation_reason"]
-    DEC -- "score ≥ 0.75" --> AUTO["auto_resolve"]
-    DEC -- "score < 0.75 / LLM error" --> ESC["escalate"]
-    FE["escalate_fast_exit\nSets: outcome = escalate · escalation_reason"]
-    FE --> LOG
-    AUTO --> LOG
-    ESC --> LOG
-    LOG["log_result\nAssembles full AgentState\ninto audit event"]
+
+    RSN -->|prompt + chunks| MODEL
+    MODEL -->|confidence score| DEC{"decide\nthreshold: 0.75"}:::decision
+
+    DEC -->|"score ≥ 0.75"| AUTO["auto_resolve"]:::green
+    DEC -->|"score < 0.75"| ESC["escalate"]:::orange
+
+    FE & AUTO & ESC --> LOG["log_result\nAssembles AgentState"]:::node
+
     subgraph AUDIT["Audit Layer"]
         direction LR
-        SQLDB[("SQLite\naudit_log")]
-        AJ["audit.jsonl"]
-        EQ["escalation_queue.jsonl"]
+        SQLDB[("SQLite")]:::store
+        AJ["audit.jsonl"]:::file
+        EQ["escalation_queue.jsonl"]:::file
     end
+
     LOG --> AUDIT
-    LOG --> RESP["HTTP Response\njob_id · outcome · confidence_score\nreasoning_trace · resolution_steps"]
-    style ERR fill:#922b21,color:#fff
-    style AUTO fill:#1e8449,color:#fff
-    style ESC fill:#935116,color:#fff
-    style FE fill:#935116,color:#fff
+    LOG --> RESP(["HTTP Response\njob_id · outcome · confidence_score"]):::api
+
+    classDef node fill:#1e3a5f,stroke:#60a5fa,stroke-width:2px,color:#dbeafe
+    classDef decision fill:#312e81,stroke:#818cf8,stroke-width:2px,color:#e0e7ff
+    classDef green fill:#14532d,stroke:#4ade80,stroke-width:2px,color:#dcfce7
+    classDef orange fill:#431407,stroke:#fb923c,stroke-width:2px,color:#ffedd5
+    classDef error fill:#450a0a,stroke:#f87171,stroke-width:2px,color:#fee2e2
+    classDef store fill:#0c1445,stroke:#60a5fa,stroke-width:2px,color:#bfdbfe
+    classDef llm fill:#2e1065,stroke:#a78bfa,stroke-width:2px,color:#ede9fe
+    classDef api fill:#064e3b,stroke:#34d399,stroke-width:2px,color:#d1fae5
+    classDef file fill:#1c1c2e,stroke:#4b5563,stroke-width:1px,color:#9ca3af
 ```
 
 ---
