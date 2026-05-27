@@ -26,22 +26,13 @@ flowchart TD
 
     CLS["classify\nKeyword scan on description"]:::proc
     CLS -->|"sanctions · AML\nbuy-in · sell-out"| FE["escalate_fast_exit\nRegulatory keyword bypass"]:::orange
-    CLS -->|no keyword| RET
+    CLS -->|no keyword| RET["retrieve\nQuery knowledge base"]:::proc
 
-    subgraph MIMIR["Mimir  ·  ChromaDB"]
-        RET["retrieve\nQuery knowledge base"]:::proc
-        DB[("6 FINRA / SEC docs\nPass 1 · semantic · k=3\nPass 2 · cross-ref · k=2")]:::store
-        RET -->|query| DB
-    end
+    RET -->|query| DB[("ChromaDB\n6 FINRA / SEC docs\nPass 1 · semantic · k=3\nPass 2 · cross-ref · k=2")]:::store
+    DB -->|ranked chunks| RSN["reason\nFour-factor scoring rubric"]:::proc
 
-    subgraph CLAUDE_API["Claude API  ·  claude-sonnet-4-6"]
-        RSN["reason\nFour-factor scoring rubric"]:::proc
-        MODEL["Condition Match  ·  Obligation Clarity\nException Applicability  ·  Cross-ref Resolution"]:::llm
-        RSN -->|prompt + chunks| MODEL
-    end
-
-    DB --> RSN
-    MODEL --> DEC{"decide\nthreshold: 0.75"}:::decision
+    RSN -->|prompt + chunks| MODEL["claude-sonnet-4-6\nCondition Match · Obligation Clarity\nException Applicability · Cross-ref Resolution"]:::llm
+    MODEL -->|confidence score| DEC{"decide\nthreshold: 0.75"}:::decision
 
     DEC -->|"score ≥ 0.75"| AUTO["auto_resolve"]:::green
     DEC -->|"score < 0.75"| ESC["escalate"]:::orange
