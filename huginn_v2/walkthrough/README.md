@@ -1,6 +1,6 @@
 # Huginn v2 — Code Walkthrough
 
-Nine files. Browse the directory above to open any walkthrough.
+Nine files. Click any node to open its walkthrough.
 
 ```mermaid
 flowchart TD
@@ -24,6 +24,16 @@ flowchart TD
     BLD -->|populates| CDB
 
     AUD --> RESP(["HTTP Response"]):::io
+
+    click API href "https://github.com/rlin25/HuginnsMessage/blob/master/huginn_v2/walkthrough/api_main.md"
+    click MDL href "https://github.com/rlin25/HuginnsMessage/blob/master/huginn_v2/walkthrough/models_exception.md"
+    click STA href "https://github.com/rlin25/HuginnsMessage/blob/master/huginn_v2/walkthrough/agent_state.md"
+    click GRP href "https://github.com/rlin25/HuginnsMessage/blob/master/huginn_v2/walkthrough/agent_graph.md"
+    click NOD href "https://github.com/rlin25/HuginnsMessage/blob/master/huginn_v2/walkthrough/agent_nodes.md"
+    click RET href "https://github.com/rlin25/HuginnsMessage/blob/master/huginn_v2/walkthrough/mimir_retriever.md"
+    click IDX href "https://github.com/rlin25/HuginnsMessage/blob/master/huginn_v2/walkthrough/mimir_index.md"
+    click AUD href "https://github.com/rlin25/HuginnsMessage/blob/master/huginn_v2/walkthrough/logger_audit.md"
+    click BLD href "https://github.com/rlin25/HuginnsMessage/blob/master/huginn_v2/walkthrough/scripts_build_index.md"
 
     classDef entry fill:#064e3b,stroke:#34d399,stroke-width:2px,color:#d1fae5
     classDef agent fill:#1e3a5f,stroke:#60a5fa,stroke-width:2px,color:#dbeafe
